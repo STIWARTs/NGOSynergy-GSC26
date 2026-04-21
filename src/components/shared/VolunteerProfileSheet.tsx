@@ -47,7 +47,7 @@ export default function VolunteerProfileSheet({
                   <label className="block text-sm font-medium text-text-muted mb-2">
                     Contact Information
                   </label>
-                  <p className="text-text-primary font-mono text-sm">{volunteer.contact}</p>
+                  <p className="text-text-primary font-mono text-sm">{volunteer.email}</p>
                 </div>
 
                 <div>
@@ -80,7 +80,7 @@ export default function VolunteerProfileSheet({
                   <label className="block text-sm font-medium text-text-muted mb-2">
                     Reliability Score
                   </label>
-                  <ReliabilityScore score={volunteer.reliability} />
+                  <ReliabilityScore score={volunteer.reliabilityScore} />
                 </div>
 
                 <div>
@@ -112,7 +112,7 @@ export default function VolunteerProfileSheet({
                 <div>
                   <label className="block text-sm font-medium text-text-muted mb-2">Reliability Trend</label>
                   <div className="h-20 border border-border rounded-lg p-3 flex items-end gap-2 bg-base">
-                    {[0.82, 0.86, 0.88, 0.91, volunteer.reliability].map((value, idx) => (
+                    {[0.82, 0.86, 0.88, 0.91, volunteer.reliabilityScore].map((value, idx) => (
                       <div key={idx} className="flex-1 bg-action/70 rounded-sm" style={{ height: `${value * 70}px` }} />
                     ))}
                   </div>
