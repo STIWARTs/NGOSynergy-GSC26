@@ -19,3 +19,8 @@ pnpm-debug.log*
 coverage/
 .next/
 out/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+overview.md
