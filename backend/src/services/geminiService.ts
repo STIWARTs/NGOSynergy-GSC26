@@ -45,7 +45,7 @@ Respond in JSON format:
                 {
                   inlineData: {
                     mimeType: 'image/jpeg',
-                    data: await fetch(imageUrl).then((r) => r.arrayBuffer()),
+                    data: Buffer.from(await fetch(imageUrl).then((r) => r.arrayBuffer())).toString('base64'),
                   },
                 },
               ],
@@ -116,7 +116,7 @@ Respond in JSON format:
                 {
                   inlineData: {
                     mimeType: 'image/jpeg',
-                    data: await fetch(photoUrl).then((r) => r.arrayBuffer()),
+                    data: Buffer.from(await fetch(photoUrl).then((r) => r.arrayBuffer())).toString('base64'),
                   },
                 },
               ],
