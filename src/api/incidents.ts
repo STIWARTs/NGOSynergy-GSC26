@@ -1,5 +1,5 @@
 import { Incident } from '@/types'
-import { mockIncidents } from '@/lib/mockData'
+import { fetchApi } from './client'
 
 interface IncidentStats {
   activeFieldworkers: number
@@ -10,40 +10,19 @@ interface IncidentStats {
 
 export const incidentService = {
   getAll: async (): Promise<Incident[]> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(mockIncidents)
-      }, 300)
-    })
+    return fetchApi<Incident[]>('GET', '/api/incidents')
   },
 
   getActive: async (): Promise<Incident[]> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(mockIncidents.filter((i) => i.status === 'active'))
-      }, 300)
-    })
+    const incidents = await fetchApi<Incident[]>('GET', '/api/incidents')
+    return incidents.filter((i) => i.status !== 'resolved')
   },
 
   getHighUrgency: async (): Promise<number> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const count = mockIncidents.filter((i) => i.urgencyScore >= 70).length
-        resolve(count)
-      }, 300)
-    })
+    return fetchApi<number>('GET', '/api/incidents/high-urgency')
   },
 
   getStats: async (): Promise<IncidentStats> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          activeFieldworkers: 12,
-          pendingDigitization: 5,
-          highUrgencyTasks: mockIncidents.filter((i) => i.urgencyScore >= 70).length,
-          avgResponseTime: 24,
-        })
-      }, 300)
-    })
+    return fetchApi<IncidentStats>('GET', '/api/incidents/stats/dashboard')
   },
 }
