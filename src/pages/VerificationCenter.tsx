@@ -1,19 +1,45 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { VerificationItem } from '@/types'
-import { mockVerificationItems } from '@/lib/mockData'
 import { toast } from 'sonner'
 import * as Dialog from '@radix-ui/react-dialog'
+import { verificationService } from '@/api/verification'
+
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const earthRadius = 6371000
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 
 export default function VerificationCenter() {
-  const [items, setItems] = useState<VerificationItem[]>(mockVerificationItems)
+  const [items, setItems] = useState<VerificationItem[]>([])
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? '')
   const [rejectReason, setRejectReason] = useState('Insufficient evidence')
   const [open, setOpen] = useState(false)
 
+  useEffect(() => {
+    void verificationService.getAll().then(setItems)
+  }, [])
+
+  useEffect(() => {
+    if (!selectedId && items[0]) setSelectedId(items[0].id)
+  }, [items, selectedId])
+
   const selectedItem = useMemo(() => items.find((item) => item.id === selectedId), [items, selectedId])
 
-  const updateStatus = (status: 'verified' | 'rejected') => {
+  const updateStatus = async (status: 'verified' | 'rejected') => {
     if (!selectedItem) return
+    if (status === 'verified') {
+      await verificationService.verify(selectedItem.id)
+    } else {
+      await verificationService.reject(selectedItem.id, rejectReason)
+    }
+    const refreshed = await verificationService.getAll()
+    setItems(refreshed)
     setItems((prev) => prev.map((item) => (item.id === selectedItem.id ? { ...item, status } : item)))
     if (status === 'verified') {
       toast.error('Critical Incident Verified', {
@@ -21,6 +47,15 @@ export default function VerificationCenter() {
       })
     }
   }
+
+  const distanceMeters = selectedItem
+    ? haversineMeters(
+        selectedItem.reportedLocation.lat,
+        selectedItem.reportedLocation.lng,
+        selectedItem.submissionLocation.lat,
+        selectedItem.submissionLocation.lng
+      )
+    : 0
 
   return (
     <div className="space-y-6">
@@ -65,6 +100,23 @@ export default function VerificationCenter() {
                       Reported: {selectedItem.reportedLocation.lat.toFixed(4)}, {selectedItem.reportedLocation.lng.toFixed(4)}
                       <br />
                       Submitted: {selectedItem.submissionLocation.lat.toFixed(4)}, {selectedItem.submissionLocation.lng.toFixed(4)}
+                      <br />
+                      <span
+                        className={
+                          distanceMeters <= 500
+                            ? 'text-success'
+                            : distanceMeters > 1000
+                              ? 'text-urgency'
+                              : 'text-text-muted'
+                        }
+                      >
+                        Delta: {Math.round(distanceMeters)}m
+                        {distanceMeters <= 500
+                          ? ' (verified proximity)'
+                          : distanceMeters > 1000
+                            ? ' (mismatch > 1km)'
+                            : ' (needs manual confirmation)'}
+                      </span>
                     </div>
                     <p className="text-sm text-text-muted">Community Confirmations: {selectedItem.communityConfirmations}</p>
                     <div className="flex gap-2">
@@ -74,8 +126,16 @@ export default function VerificationCenter() {
                         <option>Location mismatch</option>
                         <option>Duplicate report</option>
                       </select>
-                      <button onClick={() => updateStatus('rejected')} className="px-4 py-2 rounded bg-urgency text-white text-sm">Reject as Unverified</button>
-                      <button onClick={() => toast.message('Forwarded to Government', { description: selectedItem.location })} className="px-4 py-2 rounded bg-action text-white text-sm">Forward to Government</button>
+                      <button onClick={() => void updateStatus('rejected')} className="px-4 py-2 rounded bg-urgency text-white text-sm">Reject as Unverified</button>
+                      <button
+                        onClick={async () => {
+                          await verificationService.forwardToGovernment(selectedItem.id)
+                          toast.message('Forwarded to Government', { description: selectedItem.location })
+                        }}
+                        className="px-4 py-2 rounded bg-action text-white text-sm"
+                      >
+                        Forward to Government
+                      </button>
                     </div>
                   </div>
                 )}

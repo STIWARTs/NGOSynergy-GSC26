@@ -14,8 +14,18 @@ export const verificationService = {
     await wait(150)
     queue = queue.map((item) => (item.id === id ? { ...item, status: 'verified' } : item))
   },
-  async reject(id: string): Promise<void> {
+  async reject(id: string, reason: string): Promise<void> {
     await wait(150)
-    queue = queue.map((item) => (item.id === id ? { ...item, status: 'rejected' } : item))
+    queue = queue.map((item) =>
+      item.id === id ? { ...item, status: 'rejected', aiAnalysis: `${item.aiAnalysis} Rejection reason: ${reason}.` } : item
+    )
+  },
+  async forwardToGovernment(id: string): Promise<void> {
+    await wait(180)
+    queue = queue.map((item) =>
+      item.id === id
+        ? { ...item, aiAnalysis: `${item.aiAnalysis} Summary forwarded to government coordination channel.` }
+        : item
+    )
   },
 }
