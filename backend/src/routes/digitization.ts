@@ -29,6 +29,21 @@ router.post('/upload', authMiddleware, adminOnly, async (req: Request, res: Resp
   }
 })
 
+// Get digitization queue
+router.get('/queue', authMiddleware, adminOnly, async (req: Request, res: Response) => {
+  try {
+    const items = await firebaseService.getDigitizationQueue()
+    res.json({
+      items,
+      total: items.length,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error('Queue fetch error:', error)
+    res.status(500).json({ error: error.message || 'Failed to fetch digitization queue' })
+  }
+})
+
 // Commit digitized data as incident
 router.post('/commit', authMiddleware, adminOnly, async (req: Request, res: Response) => {
   try {
