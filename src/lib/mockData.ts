@@ -386,3 +386,69 @@ export const DEFAULT_URGENCY_MULTIPLIERS = {
   impact: 1.2,
   severity: 1.3,
 }
+
+const incidentCategories = ['Flood', 'Earthquake', 'Fire', 'Landslide', 'Medical Emergency', 'Infrastructure Damage']
+const volunteerSkillSets = [
+  ['Medical', 'First Aid'],
+  ['Search & Rescue', 'Navigation'],
+  ['Logistics', 'Coordination'],
+  ['Engineering', 'Infrastructure'],
+  ['Counseling', 'Community Outreach'],
+]
+
+while (mockIncidents.length < 20) {
+  const idx = mockIncidents.length + 1
+  mockIncidents.push({
+    id: String(idx),
+    title: `Incident Report ${idx}`,
+    category: incidentCategories[idx % incidentCategories.length],
+    location: `Zone ${idx}, Coordination Sector`,
+    latitude: 40.7 + idx * 0.002,
+    longitude: -74 + idx * 0.002,
+    severity: 4 + (idx % 6),
+    impact: 3 + (idx % 7),
+    urgencyScore: 35 + (idx % 60),
+    timestamp: new Date(Date.now() - idx * 600000),
+    status: idx % 3 === 0 ? 'pending' : idx % 5 === 0 ? 'resolved' : 'active',
+    reporterName: `Reporter ${idx}`,
+    description: `Field update for incident ${idx}.`,
+    affectedCount: 30 + idx * 7,
+    verified: idx % 2 === 0,
+    vertexVerified: idx % 3 === 0,
+  })
+}
+
+while (mockVolunteers.length < 30) {
+  const idx = mockVolunteers.length + 1
+  const skills = volunteerSkillSets[idx % volunteerSkillSets.length]
+  mockVolunteers.push({
+    id: String(idx),
+    name: `Volunteer ${idx}`,
+    skills,
+    distance: Number((0.5 + (idx % 9) * 0.3).toFixed(1)),
+    reliability: Number((0.8 + (idx % 18) * 0.01).toFixed(2)),
+    status: idx % 4 === 0 ? 'deployed' : idx % 6 === 0 ? 'inactive' : 'active',
+    avatarInitials: `V${idx}`,
+    contact: `+1-555-${String(1000 + idx).slice(-4)}`,
+    certifications: [`${skills[0]} Certified`],
+    pastDeployments: 6 + idx,
+  })
+}
+
+while (mockVerificationItems.length < 10) {
+  const idx = mockVerificationItems.length + 1
+  mockVerificationItems.push({
+    id: String(idx),
+    reporterName: `Citizen ${idx}`,
+    incidentType: incidentCategories[idx % incidentCategories.length],
+    timestamp: new Date(Date.now() - idx * 420000),
+    location: `Community Block ${idx}`,
+    photoUrl: 'https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=400&h=400&fit=crop',
+    reportText: `Community report ${idx} submitted from mobile portal.`,
+    aiAnalysis: 'Photo contains evidence consistent with reported category. Confidence: 88%.',
+    reportedLocation: { lat: 40.7 + idx * 0.002, lng: -74 + idx * 0.002 },
+    submissionLocation: { lat: 40.7005 + idx * 0.002, lng: -73.9995 + idx * 0.002 },
+    communityConfirmations: 2 + idx,
+    status: idx % 4 === 0 ? 'verified' : 'pending',
+  })
+}
