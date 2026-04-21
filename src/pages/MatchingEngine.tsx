@@ -4,7 +4,19 @@ import { useAIWeights } from '@/context/AIWeightsContext'
 import { GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-maps/api'
 import { Skeleton } from '@/components/shared/Skeleton'
 import { emitGlobalToast } from '@/lib/events'
-import { useMatchResults } from '@/hooks/useMatching'
+import { useDeployMatch, useMatchResults } from '@/hooks/useMatching'
+import SkillBadge from '@/components/shared/SkillBadge'
+
+const mapLibraries: ('visualization')[] = ['visualization']
+
+const darkMapStyle = [
+  { stylers: [{ saturation: -100 }, { lightness: -25 }] },
+  { elementType: 'geometry', stylers: [{ color: '#0f172a' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0f172a' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#94a3b8' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1e293b' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#020617' }] },
+]
 
 export default function MatchingEngine() {
   const [incidentId, setIncidentId] = useState(mockIncidents[0]?.id ?? '')
@@ -13,9 +25,15 @@ export default function MatchingEngine() {
   const [zoneFilter, setZoneFilter] = useState('all')
   const [loadingRecommendations, setLoadingRecommendations] = useState(false)
   const [selectedVolunteerPin, setSelectedVolunteerPin] = useState<string | null>(null)
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
+  )
   const { weights } = useAIWeights()
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? localStorage.getItem('googleMapsApiKey') ?? ''
   const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '',
+    id: 'google-maps-script',
+    googleMapsApiKey: apiKey,
+    libraries: mapLibraries,
   })
 
   const now = Date.now()
@@ -48,7 +66,8 @@ export default function MatchingEngine() {
     () => highPriorityIncidents.find((incident) => incident.id === incidentId) ?? highPriorityIncidents[0],
     [highPriorityIncidents, incidentId]
   )
-  const { data: suggestedMatches = [] } = useMatchResults(selectedIncident?.id ?? '')
+  const { data: suggestedMatches = [] } = useMatchResults(selectedIncident?.id ?? '', weights)
+  const deployMutation = useDeployMatch()
 
   const rankedVolunteers = useMemo(() => {
     if (!selectedIncident) return []
@@ -90,6 +109,26 @@ export default function MatchingEngine() {
     const timeout = setTimeout(() => setLoadingRecommendations(false), 600)
     return () => clearTimeout(timeout)
   }, [incidentId, weights])
+
+  useEffect(() => {
+    const checkTheme = () => {
+      const currentTheme = (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
+      setTheme(currentTheme)
+    }
+
+    checkTheme()
+    const observer = new MutationObserver(checkTheme)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    window.addEventListener('storage', checkTheme)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('storage', checkTheme)
+    }
+  }, [])
+
+  const mapStyle = theme === 'light' ? undefined : darkMapStyle
+  const displayedRecommendations = suggestedMatches.length > 0 ? suggestedMatches : rankedVolunteers.slice(0, 3)
 
   return (
     <div className="space-y-4 h-full">
@@ -172,7 +211,7 @@ export default function MatchingEngine() {
                     <Skeleton className="h-2 w-full" />
                   </div>
                 ))
-              : (suggestedMatches.length > 0 ? suggestedMatches : rankedVolunteers.slice(0, 3)).map((volunteer) => (
+              : displayedRecommendations.map((volunteer) => (
                   <div key={'volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id} className="border border-border rounded p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-text-primary font-semibold">
@@ -183,22 +222,31 @@ export default function MatchingEngine() {
                     <div className="h-2 rounded bg-base overflow-hidden">
                       <div className="h-full bg-action" style={{ width: `${volunteer.matchScore}%` }} />
                     </div>
-                    <p className="text-xs text-text-muted">{volunteer.skills.join(', ')}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {volunteer.skills.map((skill) => (
+                        <SkillBadge key={skill} skill={skill} />
+                      ))}
+                    </div>
                     <p className="text-xs text-text-muted">
                       {volunteer.distance} km away · {volunteer.reliability.toFixed(2)} reliability
                     </p>
                     <p className="text-xs text-text-primary">
-                      Prioritized due to {volunteer.skills[0]} skill alignment, nearby distance, and proven reliability.
+                      {'reasoning' in volunteer
+                        ? volunteer.reasoning
+                        : `Prioritized due to ${volunteer.skills[0]} skill alignment, nearby distance, and proven reliability.`}
                     </p>
                     <button
                       className="w-full px-3 py-2 rounded bg-action text-white text-xs"
-                      onClick={() =>
+                      onClick={async () => {
+                        if (!selectedIncident) return
+                        const volunteerId = 'volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id
+                        await deployMutation.mutateAsync({ incidentId: selectedIncident.id, volunteerId })
                         emitGlobalToast({
                           type: 'volunteer_deployed',
                           title: 'Volunteer Deployed Successfully',
-                          description: `${volunteer.name} assigned to ${selectedIncident?.title ?? 'incident'}`,
+                          description: `${volunteer.name} assigned to ${selectedIncident.title}`,
                         })
-                      }
+                      }}
                     >
                       Deploy Volunteer
                     </button>
@@ -210,22 +258,23 @@ export default function MatchingEngine() {
         <div className="bg-surface border border-border rounded-lg overflow-hidden min-h-0">
           {isLoaded && selectedIncident ? (
             <GoogleMap
+              key={`matching-map-${theme}`}
               mapContainerStyle={{ width: '100%', height: '100%' }}
               center={{ lat: selectedIncident.latitude, lng: selectedIncident.longitude }}
               zoom={13}
-              options={{ disableDefaultUI: true }}
+              options={{ disableDefaultUI: true, styles: mapStyle }}
             >
               <MarkerF position={{ lat: selectedIncident.latitude, lng: selectedIncident.longitude }} />
-              {rankedVolunteers.slice(0, 3).map((volunteer, idx) => (
+              {displayedRecommendations.map((volunteer, idx) => (
                 <MarkerF
-                  key={volunteer.id}
+                  key={'volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id}
                   position={{
                     lat: selectedIncident.latitude + (idx + 1) * 0.003,
                     lng: selectedIncident.longitude - (idx + 1) * 0.003,
                   }}
-                  onClick={() => setSelectedVolunteerPin(volunteer.id)}
+                  onClick={() => setSelectedVolunteerPin('volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id)}
                 >
-                  {selectedVolunteerPin === volunteer.id && (
+                  {selectedVolunteerPin === ('volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id) && (
                     <InfoWindowF onCloseClick={() => setSelectedVolunteerPin(null)}>
                       <div className="text-xs">
                         <p>{volunteer.name}</p>
@@ -237,8 +286,13 @@ export default function MatchingEngine() {
               ))}
             </GoogleMap>
           ) : (
-            <div className="h-full flex items-center justify-center text-sm text-text-muted">
-              Map unavailable. Add VITE_GOOGLE_MAPS_API_KEY.
+            <div className="h-full flex items-center justify-center bg-gradient-to-br from-base to-surface">
+              <div className="text-center px-4">
+                <div className="w-14 h-14 mx-auto mb-3 bg-skeleton rounded-lg animate-pulse" />
+                <p className="text-sm text-text-muted">
+                  Map unavailable. Add `VITE_GOOGLE_MAPS_API_KEY` or set `googleMapsApiKey` in localStorage.
+                </p>
+              </div>
             </div>
           )}
         </div>
