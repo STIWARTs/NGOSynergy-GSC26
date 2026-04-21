@@ -75,15 +75,15 @@ export const matchingService = {
       const aiRanked = await aiService.rankVolunteers(topCandidates, config)
 
       // Format results
-      const results: MatchResult[] = aiRanked.slice(0, limit).map((v) => ({
+      const results: MatchResult[] = aiRanked.slice(0, limit).map((v: any) => ({
         volunteerId: v.id,
         name: v.name,
-        matchScore: Math.round((v.priorityConfidence || v.quickScore * 100) * 10) / 10,
+        matchScore: Math.round((v.priorityConfidence || (v.quickScore || 0) * 100) * 10) / 10,
         skills: v.skills || [],
         distance: v.distance || 0,
         reliability: v.reliability || v.reliabilityScore || 0,
         reasoning: matchingService.generateReasoning(v, incident),
-        priorityConfidence: v.priorityConfidence || v.quickScore * 100,
+        priorityConfidence: v.priorityConfidence || (v.quickScore || 0) * 100,
       }))
 
       return results
