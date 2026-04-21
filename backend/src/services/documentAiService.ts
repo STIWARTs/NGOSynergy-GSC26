@@ -1,4 +1,4 @@
-import { DocumentProcessorServiceClient } from '@google-cloud/document-ai'
+import { DocumentProcessorServiceClient } from '@google-cloud/documentai'
 import { Storage } from '@google-cloud/storage'
 import { DigitizationResult } from '../types/index.js'
 
