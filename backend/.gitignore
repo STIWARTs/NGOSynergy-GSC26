@@ -13,3 +13,11 @@ volunteer_training.csv
 *.swo
 *.md
 !README.md
+
+
+
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+solutionchallenge-9e89a-firebase-adminsdk-fbsvc-ea0cd36d71.json
