@@ -41,9 +41,11 @@ export const aiService = {
       }))
 
       return new Promise((resolve, reject) => {
-        const python = spawn('python', [
-          process.env.ML_PREDICTOR_PATH || './backend/ml/predictor.py',
-        ])
+        const python = spawn(
+          'python',
+          [process.env.ML_PREDICTOR_PATH || './ml/predictor.py'],
+          { cwd: process.cwd() }
+        )
 
         let predictions = ''
         let errorOutput = ''
