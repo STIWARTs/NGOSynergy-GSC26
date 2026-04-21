@@ -151,7 +151,7 @@ export default function VolunteerTable({
           {table.getRowModel().rows.map((row) => (
             <tr
               key={row.id}
-              className="border-b border-border hover:bg-base transition-colors"
+              className="border-b border-border hover:bg-hover transition-colors"
             >
               {row.getVisibleCells().map((cell) => (
                 <td key={cell.id} className="px-6 py-4 text-sm">

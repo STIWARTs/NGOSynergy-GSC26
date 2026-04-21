@@ -28,7 +28,7 @@ export default function IncidentFeedItem({ incident }: IncidentFeedItemProps) {
   }
 
   return (
-    <div className="border-b border-border p-4 hover:bg-base cursor-pointer transition-colors">
+    <div className="border-b border-border p-4 hover:bg-hover cursor-pointer transition-colors">
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex-1 min-w-0">
           <div className="text-xs text-text-muted">{timeAgo(incident.timestamp)}</div>
