@@ -18,8 +18,8 @@ export default function IncidentFeedItem({ incident }: IncidentFeedItemProps) {
     return 'Medium'
   }
 
-  const timeAgo = (date: Date) => {
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
+  const timeAgo = (date: string) => {
+    const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000)
     if (seconds < 60) return `${seconds}s ago`
     const minutes = Math.floor(seconds / 60)
     if (minutes < 60) return `${minutes}m ago`
@@ -34,7 +34,7 @@ export default function IncidentFeedItem({ incident }: IncidentFeedItemProps) {
           <div className="text-xs text-text-muted">{timeAgo(incident.timestamp)}</div>
           <div className="text-sm font-medium text-text-primary truncate">{incident.title}</div>
         </div>
-        {incident.vertexVerified && (
+        {incident.geminiVerified && (
           <ShieldCheck size={14} className="text-action flex-shrink-0" />
         )}
       </div>
