@@ -11,6 +11,41 @@
   --color-success: #16A34A;
   --color-text-primary: #F1F5F9;
   --color-text-muted: #94A3B8;
+  --color-hover: #0A0F1F;
+  --color-skeleton: #334155;
+}
+
+:root[data-theme='light'] {
+  --color-base: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-border: #CBD5E1;
+  --color-action: #2563EB;
+  --color-urgency: #DC2626;
+  --color-success: #16A34A;
+  --color-text-primary: #0F172A;
+  --color-text-muted: #475569;
+  --color-hover: #E2E8F0;
+  --color-skeleton: #FAFBFC;
+}
+
+/* Ensure theme utilities always follow live CSS variables */
+.bg-base { background-color: var(--color-base) !important; }
+.bg-surface { background-color: var(--color-surface) !important; }
+.bg-hover { background-color: var(--color-hover) !important; }
+.bg-skeleton { background-color: var(--color-skeleton) !important; }
+.border-border { border-color: var(--color-border) !important; }
+.text-text-primary { color: var(--color-text-primary) !important; }
+.text-text-muted { color: var(--color-text-muted) !important; }
+.bg-action { background-color: var(--color-action) !important; }
+.bg-urgency { background-color: var(--color-urgency) !important; }
+.bg-success { background-color: var(--color-success) !important; }
+
+/* Hover utilities */
+.hover\:bg-hover:hover { background-color: var(--color-hover) !important; }
+
+/* Light mode skeleton with opacity for subtlety */
+:root[data-theme='light'] .bg-skeleton {
+  background-color: rgba(203, 213, 225, 0.2) !important;
 }
 
 * {
