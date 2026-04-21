@@ -93,7 +93,7 @@ export default function Dashboard() {
             <GoogleMap
               key={`map-${theme}`}
               mapContainerStyle={{ width: '100%', height: '100%' }}
-              center={{ lat: incidents[0]?.latitude ?? 40.7128, lng: incidents[0]?.longitude ?? -74.006 }}
+              center={{ lat: incidents[0]?.coordinates.lat ?? 40.7128, lng: incidents[0]?.coordinates.lng ?? -74.006 }}
               zoom={12}
               options={{
                 styles: mapStyle,
@@ -104,14 +104,14 @@ export default function Dashboard() {
             >
               <HeatmapLayerF
                 data={incidents.map((incident) => ({
-                  location: new google.maps.LatLng(incident.latitude, incident.longitude),
+                  location: new google.maps.LatLng(incident.coordinates.lat, incident.coordinates.lng),
                   weight: incident.severity * incident.impact,
                 }))}
               />
               {incidents.map((incident) => (
                 <MarkerF
                   key={incident.id}
-                  position={{ lat: incident.latitude, lng: incident.longitude }}
+                  position={{ lat: incident.coordinates.lat, lng: incident.coordinates.lng }}
                   animation={
                     incident.status === 'active' && !incident.verified ? google.maps.Animation.BOUNCE : undefined
                   }
@@ -119,7 +119,7 @@ export default function Dashboard() {
                     path: google.maps.SymbolPath.CIRCLE,
                     scale: 7,
                     fillColor:
-                      incident.status === 'resolved' || (incident.verified && incident.vertexVerified)
+                      incident.status === 'resolved' || (incident.verified && incident.geminiVerified)
                         ? '#16A34A'
                         : incident.status === 'active'
                           ? '#DC2626'
@@ -134,8 +134,8 @@ export default function Dashboard() {
                 <MarkerF
                   key={volunteer.id}
                   position={{
-                    lat: (incidents?.[0]?.latitude ?? 40.7128) + 0.01 + index * 0.002,
-                    lng: (incidents?.[0]?.longitude ?? -74.006) - 0.01 - index * 0.002,
+                    lat: (incidents?.[0]?.coordinates.lat ?? 40.7128) + 0.01 + index * 0.002,
+                    lng: (incidents?.[0]?.coordinates.lng ?? -74.006) - 0.01 - index * 0.002,
                   }}
                   icon={{
                     path: google.maps.SymbolPath.CIRCLE,
