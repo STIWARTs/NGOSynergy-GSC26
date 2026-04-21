@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './config';
+import { getIdToken, isFirebaseConfigured } from '@/lib/firebase';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -7,12 +8,20 @@ export class ApiError extends Error {
   }
 }
 
+async function getAuthToken(): Promise<string | null> {
+  if (isFirebaseConfigured) {
+    const token = await getIdToken()
+    if (token) return token
+  }
+  return localStorage.getItem('authToken')
+}
+
 export async function fetchApi<T = any>(
   method: string,
   endpoint: string,
   body?: any
 ): Promise<T> {
-  const token = localStorage.getItem('authToken');
+  const token = await getAuthToken();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
@@ -44,7 +53,7 @@ export async function fetchApiFormData<T = any>(
   endpoint: string,
   formData: FormData
 ): Promise<T> {
-  const token = localStorage.getItem('authToken');
+  const token = await getAuthToken();
   const headers: HeadersInit = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
