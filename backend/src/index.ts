@@ -12,6 +12,7 @@ import adminRouter from './routes/admin.js'
 import reportsRouter from './routes/reports.js'
 import digitizationRouter from './routes/digitization.js'
 import verificationRouter from './routes/verification.js'
+import volunteerRouter from './routes/volunteers.js'
 
 dotenv.config()
 
@@ -53,6 +54,7 @@ app.use('/api/admin', adminRouter)
 app.use('/api/reports', reportsRouter)
 app.use('/api/digitization', digitizationRouter)
 app.use('/api/verification', verificationRouter)
+app.use('/api/volunteers', volunteerRouter)
 
 // 404 handler
 app.use((req, res) => {
