@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-base: #0F172A;
+  --color-surface: #1E293B;
+  --color-border: #334155;
+  --color-action: #2563EB;
+  --color-urgency: #DC2626;
+  --color-success: #16A34A;
+  --color-text-primary: #F1F5F9;
+  --color-text-muted: #94A3B8;
+}
+
+* {
+  @apply border-border;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-base text-text-primary font-sans;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600');
+}
+
+.scan-line-animation {
+  @apply relative;
+}
+
+.scan-line-animation::after {
+  content: '';
+  @apply absolute top-0 left-0 right-0 bg-gradient-to-b from-transparent via-action to-transparent;
+  height: 10px;
+  animation: scan 2s linear infinite;
+  opacity: 0.3;
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(300px);
+  }
+}
+
+.pulse-red {
+  @apply animate-pulse;
+  animation-duration: 2s;
+}
+
+.badge-critical {
+  @apply bg-urgency text-white px-2 py-1 rounded-md text-xs font-semibold;
+}
+
+.badge-active {
+  @apply bg-action text-white px-2 py-1 rounded-md text-xs font-semibold;
+}
+
+.badge-resolved {
+  @apply bg-success text-white px-2 py-1 rounded-md text-xs font-semibold;
+}
+
+.badge-pending {
+  @apply bg-yellow-500 text-white px-2 py-1 rounded-md text-xs font-semibold;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
