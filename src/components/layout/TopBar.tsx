@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Search, Bell, LogOut } from 'lucide-react'
+import { Search, Bell, ChevronDown, LogOut, Settings } from 'lucide-react'
 
 export default function TopBar() {
   const [unreadCount] = useState(3)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div className="h-14 bg-surface border-b border-border flex items-center px-6 gap-4 fixed top-0 left-60 right-0 z-40">
@@ -26,9 +27,33 @@ export default function TopBar() {
         </div>
 
         <div className="flex items-center gap-2 pl-4 border-l border-border">
-          <div className="w-8 h-8 bg-action rounded-full flex items-center justify-center text-white text-xs font-semibold cursor-pointer hover:bg-blue-700 transition-colors">
-            SC
-          </div>
+          <button
+            onClick={() => setMenuOpen((prev) => !prev)}
+            className="flex items-center gap-2 hover:bg-base rounded-md px-2 py-1"
+          >
+            <div className="w-8 h-8 bg-action rounded-full flex items-center justify-center text-white text-xs font-semibold cursor-pointer hover:bg-blue-700 transition-colors">
+              SC
+            </div>
+            <ChevronDown size={14} className="text-text-muted" />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-6 top-14 w-44 bg-surface border border-border rounded-md shadow-lg z-50">
+              <button className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-base flex items-center gap-2">
+                <Settings size={14} />
+                Settings
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('authToken')
+                  window.location.href = '/login'
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-base flex items-center gap-2"
+              >
+                <LogOut size={14} />
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
