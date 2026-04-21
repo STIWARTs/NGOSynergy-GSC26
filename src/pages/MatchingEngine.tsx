@@ -41,7 +41,7 @@ export default function MatchingEngine() {
     return mockIncidents
       .filter((incident) => incident.verified)
       .map((incident) => {
-        const ageHours = (now - incident.timestamp.getTime()) / (1000 * 60 * 60)
+        const ageHours = (now - new Date(incident.timestamp).getTime()) / (1000 * 60 * 60)
         const timeFactor = Math.min(12, Math.max(1, ageHours))
         const priorityScore = incident.impact * incident.severity + timeFactor
         return { ...incident, priorityScore }
@@ -80,9 +80,9 @@ export default function MatchingEngine() {
           ? 1
           : 0.4
 
-        const proximityScore = Math.max(0, 1 - volunteer.distance / 3)
+        const proximityScore = Math.max(0, 1 - (volunteer.distance ?? 0) / 3)
         const availabilityScore = volunteer.status === 'active' ? 1 : volunteer.status === 'deployed' ? 0.3 : 0
-        const reliabilityScore = volunteer.reliability
+        const reliabilityScore = volunteer.reliabilityScore
 
         const weightedScore =
           skillScore * weights.skillMatch +
@@ -228,7 +228,7 @@ export default function MatchingEngine() {
                       ))}
                     </div>
                     <p className="text-xs text-text-muted">
-                      {volunteer.distance} km away · {volunteer.reliability.toFixed(2)} reliability
+                      {volunteer.distance} km away · {('reliabilityScore' in volunteer ? volunteer.reliabilityScore : volunteer.reliability).toFixed(2)} reliability
                     </p>
                     <p className="text-xs text-text-primary">
                       {'reasoning' in volunteer
@@ -260,17 +260,17 @@ export default function MatchingEngine() {
             <GoogleMap
               key={`matching-map-${theme}`}
               mapContainerStyle={{ width: '100%', height: '100%' }}
-              center={{ lat: selectedIncident.latitude, lng: selectedIncident.longitude }}
+              center={{ lat: selectedIncident.coordinates.lat, lng: selectedIncident.coordinates.lng }}
               zoom={13}
               options={{ disableDefaultUI: true, styles: mapStyle }}
             >
-              <MarkerF position={{ lat: selectedIncident.latitude, lng: selectedIncident.longitude }} />
+              <MarkerF position={{ lat: selectedIncident.coordinates.lat, lng: selectedIncident.coordinates.lng }} />
               {displayedRecommendations.map((volunteer, idx) => (
                 <MarkerF
                   key={'volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id}
                   position={{
-                    lat: selectedIncident.latitude + (idx + 1) * 0.003,
-                    lng: selectedIncident.longitude - (idx + 1) * 0.003,
+                    lat: selectedIncident.coordinates.lat + (idx + 1) * 0.003,
+                    lng: selectedIncident.coordinates.lng - (idx + 1) * 0.003,
                   }}
                   onClick={() => setSelectedVolunteerPin('volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id)}
                 >
