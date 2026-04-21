@@ -1,9 +1,17 @@
-import { useState } from 'react'
-import { Search, Bell, ChevronDown, LogOut, Settings } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Search, Bell, ChevronDown, LogOut, Settings, Moon, Sun } from 'lucide-react'
 
 export default function TopBar() {
   const [unreadCount] = useState(3)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
+  )
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
   return (
     <div className="h-14 bg-surface border-b border-border flex items-center px-6 gap-4 fixed top-0 left-60 right-0 z-40">
@@ -25,11 +33,19 @@ export default function TopBar() {
             </div>
           )}
         </div>
+        <button
+          onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+          className="p-2 rounded-md border border-border text-text-muted hover:text-text-primary hover:border-action hover:bg-hover transition-colors"
+          aria-label="Toggle theme"
+          title="Toggle theme"
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
 
         <div className="flex items-center gap-2 pl-4 border-l border-border">
           <button
             onClick={() => setMenuOpen((prev) => !prev)}
-            className="flex items-center gap-2 hover:bg-base rounded-md px-2 py-1"
+            className="flex items-center gap-2 hover:bg-hover rounded-md px-2 py-1"
           >
             <div className="w-8 h-8 bg-action rounded-full flex items-center justify-center text-white text-xs font-semibold cursor-pointer hover:bg-blue-700 transition-colors">
               SC
@@ -38,7 +54,7 @@ export default function TopBar() {
           </button>
           {menuOpen && (
             <div className="absolute right-6 top-14 w-44 bg-surface border border-border rounded-md shadow-lg z-50">
-              <button className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-base flex items-center gap-2">
+              <button className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-hover flex items-center gap-2">
                 <Settings size={14} />
                 Settings
               </button>
@@ -47,7 +63,7 @@ export default function TopBar() {
                   localStorage.removeItem('authToken')
                   window.location.href = '/login'
                 }}
-                className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-base flex items-center gap-2"
+                className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-hover flex items-center gap-2"
               >
                 <LogOut size={14} />
                 Logout
