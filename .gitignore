@@ -1,4 +1,5 @@
 node_modules/
+# Ignore build outputs
 dist/
 build/
 .env
@@ -19,7 +20,10 @@ pnpm-debug.log*
 coverage/
 .next/
 out/
+
+# TypeScript incremental compilation cache
 *.tsbuildinfo
+# Ignore JS artifacts(the "side products" or "by-products" created during the process of building, compiling, or running your software.) (using vite.config.ts instead)
 vite.config.js
 vite.config.d.ts
 
