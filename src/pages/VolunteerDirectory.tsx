@@ -10,12 +10,18 @@ export default function VolunteerDirectory() {
   const [selectedVolunteer, setSelectedVolunteer] = useState<Volunteer | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [skillFilter, setSkillFilter] = useState<string>('')
+  const [minReliability, setMinReliability] = useState<number>(0)
   const [page, setPage] = useState(1)
   const pageSize = 10
 
   const { data, isLoading } = useVolunteers(
     search || undefined,
-    statusFilter ? { status: statusFilter } : undefined,
+    {
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(skillFilter ? { skill: skillFilter } : {}),
+      ...(minReliability > 0 ? { minReliability } : {}),
+    },
     page,
     pageSize
   )
@@ -25,7 +31,7 @@ export default function VolunteerDirectory() {
 
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter])
+  }, [minReliability, search, skillFilter, statusFilter])
 
   const handleViewProfile = (volunteer: Volunteer) => {
     setSelectedVolunteer(volunteer)
@@ -63,6 +69,22 @@ export default function VolunteerDirectory() {
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
             <option value="deployed">Deployed</option>
+          </select>
+          <input
+            value={skillFilter}
+            onChange={(e) => setSkillFilter(e.target.value)}
+            placeholder="Filter skill"
+            className="bg-surface border border-border rounded-md px-4 py-2 text-sm text-text-primary"
+          />
+          <select
+            value={minReliability}
+            onChange={(e) => setMinReliability(Number(e.target.value))}
+            className="bg-surface border border-border rounded-md px-4 py-2 text-sm text-text-primary"
+          >
+            <option value={0}>Any reliability</option>
+            <option value={0.85}>0.85+</option>
+            <option value={0.9}>0.90+</option>
+            <option value={0.95}>0.95+</option>
           </select>
         </div>
       </div>
