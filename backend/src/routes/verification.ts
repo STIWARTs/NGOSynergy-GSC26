@@ -8,19 +8,8 @@ const router = Router()
 // Get verification items pending review
 router.get('/', authMiddleware, adminOnly, async (req: Request, res: Response) => {
   try {
-    // Mock data - would fetch from Firestore in production
-    res.json([
-      {
-        id: '1',
-        reporterName: 'Field Agent',
-        incidentType: 'Flood',
-        timestamp: new Date(),
-        location: 'Sector 5',
-        photoUrl: '',
-        reportText: 'Water level rising rapidly',
-        status: 'pending',
-      },
-    ])
+    const items = await firebaseService.getVerifications()
+    res.json(items)
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch verification items' })
   }
