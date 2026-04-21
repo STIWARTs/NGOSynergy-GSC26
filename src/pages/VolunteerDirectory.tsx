@@ -1,10 +1,77 @@
+import { useState } from 'react'
+import { useVolunteers } from '@/hooks/useVolunteers'
+import VolunteerTable from '@/components/shared/VolunteerTable'
+import VolunteerProfileSheet from '@/components/shared/VolunteerProfileSheet'
+import { Volunteer } from '@/types'
+import { Search } from 'lucide-react'
+
 export default function VolunteerDirectory() {
+  const [search, setSearch] = useState('')
+  const [selectedVolunteer, setSelectedVolunteer] = useState<Volunteer | null>(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string>('')
+
+  const { data: volunteers = [], isLoading } = useVolunteers(
+    search || undefined,
+    statusFilter ? { status: statusFilter } : undefined
+  )
+
+  const handleViewProfile = (volunteer: Volunteer) => {
+    setSelectedVolunteer(volunteer)
+    setProfileOpen(true)
+  }
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-mono font-semibold text-text-primary">Volunteer Directory</h1>
-      <div className="bg-surface border border-border rounded-lg p-6">
-        <p className="text-text-muted">Volunteer Directory page - Coming soon</p>
+    <div className="space-y-6 h-full flex flex-col">
+      <div>
+        <h1 className="text-3xl font-mono font-semibold text-text-primary mb-4">
+          Volunteer Directory
+        </h1>
+        <p className="text-text-muted text-sm">{volunteers.length} volunteers available</p>
       </div>
+
+      <div className="space-y-4">
+        <div className="flex gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" size={18} />
+            <input
+              type="text"
+              placeholder="Search by name, skills, or certifications..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-surface border border-border rounded-md pl-10 pr-4 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-action transition-colors"
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-surface border border-border rounded-md px-4 py-2 text-sm text-text-primary focus:outline-none focus:border-action transition-colors"
+          >
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="deployed">Deployed</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="flex-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col min-h-0">
+        <VolunteerTable
+          data={volunteers}
+          isLoading={isLoading}
+          onViewProfile={handleViewProfile}
+        />
+      </div>
+
+      <VolunteerProfileSheet
+        volunteer={selectedVolunteer}
+        open={profileOpen}
+        onClose={() => {
+          setProfileOpen(false)
+          setSelectedVolunteer(null)
+        }}
+      />
     </div>
   )
 }
