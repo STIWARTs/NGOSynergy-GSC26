@@ -90,7 +90,7 @@ export default function VolunteerTable({
         id: 'reliability',
         header: 'Reliability',
         cell: ({ row }: any) => (
-          <ReliabilityScore score={row.original.reliability} />
+          <ReliabilityScore score={row.original.reliabilityScore} />
         ),
       },
       {
