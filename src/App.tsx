@@ -4,6 +4,7 @@ import { AIWeightsProvider } from './context/AIWeightsContext'
 import { Toaster } from 'sonner'
 import AppLayout from './components/layout/AppLayout'
 import LoginPage from './pages/Login'
+import PublicReportPage from './pages/PublicReport'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -15,13 +16,15 @@ const queryClient = new QueryClient({
 })
 
 function App() {
-  const isAuthenticated = localStorage.getItem('authToken')
+  const skipAuth = localStorage.getItem('skipAuth') === 'true'
+  const isAuthenticated = skipAuth || !!localStorage.getItem('authToken')
 
   return (
     <QueryClientProvider client={queryClient}>
       <AIWeightsProvider>
         <Router>
           <Routes>
+            <Route path="/report" element={<PublicReportPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route
               path="/*"
