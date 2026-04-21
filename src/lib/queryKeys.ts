@@ -12,6 +12,7 @@ export const queryKeys = {
   digitization: {
     all: ['digitization'] as const,
     queue: ['digitization', 'queue'] as const,
+    item: (id: string) => ['digitization', 'item', id] as const,
   },
   verification: {
     all: ['verification'] as const,
