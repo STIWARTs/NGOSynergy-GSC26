@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { mockIncidents, mockVolunteers } from '@/lib/mockData'
 import { useAIWeights } from '@/context/AIWeightsContext'
-import { toast } from 'sonner'
 import { GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-maps/api'
 import { Skeleton } from '@/components/shared/Skeleton'
+import { emitGlobalToast } from '@/lib/events'
+import { useMatchResults } from '@/hooks/useMatching'
 
 export default function MatchingEngine() {
   const [incidentId, setIncidentId] = useState(mockIncidents[0]?.id ?? '')
@@ -47,6 +48,7 @@ export default function MatchingEngine() {
     () => highPriorityIncidents.find((incident) => incident.id === incidentId) ?? highPriorityIncidents[0],
     [highPriorityIncidents, incidentId]
   )
+  const { data: suggestedMatches = [] } = useMatchResults(selectedIncident?.id ?? '')
 
   const rankedVolunteers = useMemo(() => {
     if (!selectedIncident) return []
@@ -170,8 +172,8 @@ export default function MatchingEngine() {
                     <Skeleton className="h-2 w-full" />
                   </div>
                 ))
-              : rankedVolunteers.slice(0, 3).map((volunteer) => (
-                  <div key={volunteer.id} className="border border-border rounded p-3 space-y-2">
+              : (suggestedMatches.length > 0 ? suggestedMatches : rankedVolunteers.slice(0, 3)).map((volunteer) => (
+                  <div key={'volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id} className="border border-border rounded p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-text-primary font-semibold">
                         {volunteer.name} ({volunteer.avatarInitials})
@@ -191,7 +193,9 @@ export default function MatchingEngine() {
                     <button
                       className="w-full px-3 py-2 rounded bg-action text-white text-xs"
                       onClick={() =>
-                        toast.message('Volunteer Deployed Successfully', {
+                        emitGlobalToast({
+                          type: 'volunteer_deployed',
+                          title: 'Volunteer Deployed Successfully',
                           description: `${volunteer.name} assigned to ${selectedIncident?.title ?? 'incident'}`,
                         })
                       }
