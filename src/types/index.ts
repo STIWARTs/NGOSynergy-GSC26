@@ -35,18 +35,29 @@ export interface DigitizationItem {
   id: string
   filename: string
   pageCount: number
-  status: 'pending' | 'processing' | 'processed' | 'failed'
+  status: 'pending' | 'uploading' | 'processing' | 'processed' | 'failed' | 'rescanned' | 'discarded'
   uploadedAt: Date
   imageUrl: string
-  extractedData: {
-    incidentType?: string
-    location?: string
-    date?: string
-    severity?: string
-    reporterName?: string
-    description?: string
-    affectedCount?: string
-  } | null
+  progress: number
+  source: 'batch' | 'single'
+  extractedData: DigitizedExtraction | null
+  verification?: DigitizationVerification
+}
+
+export interface DigitizedExtraction {
+  incidentType?: string
+  location?: string
+  date?: string
+  severity?: string
+  reporterName?: string
+  description?: string
+  affectedCount?: string
+}
+
+export interface DigitizationVerification {
+  reviewedBy?: string
+  reviewedAt?: Date
+  notes?: string
 }
 
 export interface VerificationItem {
