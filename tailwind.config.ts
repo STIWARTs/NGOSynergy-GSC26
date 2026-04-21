@@ -8,15 +8,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        base: '#0F172A',
-        surface: '#1E293B',
-        border: '#334155',
-        action: '#2563EB',
-        urgency: '#DC2626',
-        success: '#16A34A',
+        base: 'var(--color-base)',
+        surface: 'var(--color-surface)',
+        border: 'var(--color-border)',
+        action: 'var(--color-action)',
+        urgency: 'var(--color-urgency)',
+        success: 'var(--color-success)',
         text: {
-          primary: '#F1F5F9',
-          muted: '#94A3B8',
+          primary: 'var(--color-text-primary)',
+          muted: 'var(--color-text-muted)',
         },
       },
       fontFamily: {
@@ -24,15 +24,15 @@ const config: Config = {
         sans: ['Inter', 'sans-serif'],
       },
       backgroundColor: {
-        'base': '#0F172A',
-        'surface': '#1E293B',
+        'base': 'var(--color-base)',
+        'surface': 'var(--color-surface)',
       },
       borderColor: {
-        'base': '#334155',
+        'base': 'var(--color-border)',
       },
       textColor: {
-        'primary': '#F1F5F9',
-        'muted': '#94A3B8',
+        'primary': 'var(--color-text-primary)',
+        'muted': 'var(--color-text-muted)',
       },
     },
   },
