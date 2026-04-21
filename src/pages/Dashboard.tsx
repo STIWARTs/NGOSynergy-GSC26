@@ -4,17 +4,50 @@ import IncidentFeedItem from '@/components/shared/IncidentFeedItem'
 import { Skeleton } from '@/components/shared/Skeleton'
 import { GoogleMap, HeatmapLayerF, MarkerF, useJsApiLoader } from '@react-google-maps/api'
 import { mockVolunteers } from '@/lib/mockData'
+import { useState, useEffect } from 'react'
 
 const mapLibraries: ('visualization')[] = ['visualization']
-const mapStyle = [
+
+const darkMapStyle = [
+  { stylers: [{ saturation: -100 }, { lightness: -25 }] },
   { elementType: 'geometry', stylers: [{ color: '#0f172a' }] },
+  { elementType: 'geometry.fill', stylers: [{ color: '#0f172a' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#0f172a' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#94a3b8' }] },
+  { featureType: 'all', elementType: 'geometry.fill', stylers: [{ color: '#0f172a' }] },
+  { featureType: 'all', elementType: 'geometry.stroke', stylers: [{ color: '#1e293b' }] },
   { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1e293b' }] },
+  { featureType: 'road.highway', elementType: 'geometry.fill', stylers: [{ color: '#2d3748' }] },
+  { featureType: 'road.arterial', elementType: 'geometry.fill', stylers: [{ color: '#1e293b' }] },
+  { featureType: 'road.local', elementType: 'geometry.fill', stylers: [{ color: '#1e293b' }] },
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#020617' }] },
+  { featureType: 'water', elementType: 'geometry.fill', stylers: [{ color: '#020617' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#334155' }] },
+  { featureType: 'administrative.province', elementType: 'geometry.stroke', stylers: [{ color: '#334155' }] },
+]
+
+const lightMapStyle = [
+  { stylers: [{ saturation: 0 }, { lightness: 100 }] },
+  { elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+  { elementType: 'geometry.fill', stylers: [{ color: '#ffffff' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#0f172a' }] },
+  { featureType: 'all', elementType: 'geometry.fill', stylers: [{ color: '#f8fafc' }] },
+  { featureType: 'all', elementType: 'geometry.stroke', stylers: [{ color: '#e2e8f0' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#e2e8f0' }] },
+  { featureType: 'road.highway', elementType: 'geometry.fill', stylers: [{ color: '#cbd5e1' }] },
+  { featureType: 'road.arterial', elementType: 'geometry.fill', stylers: [{ color: '#e2e8f0' }] },
+  { featureType: 'road.local', elementType: 'geometry.fill', stylers: [{ color: '#e2e8f0' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#cbd5e1' }] },
+  { featureType: 'water', elementType: 'geometry.fill', stylers: [{ color: '#cbd5e1' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#cbd5e1' }] },
+  { featureType: 'administrative.province', elementType: 'geometry.stroke', stylers: [{ color: '#cbd5e1' }] },
 ]
 
 export default function Dashboard() {
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
+  )
   const { data: incidents, isLoading: incidentsLoading } = useActiveIncidents()
   const { data: stats, isLoading: statsLoading } = useIncidentStats()
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? localStorage.getItem('googleMapsApiKey') ?? ''
@@ -22,6 +55,27 @@ export default function Dashboard() {
     googleMapsApiKey: apiKey,
     libraries: mapLibraries,
   })
+
+  useEffect(() => {
+    const checkTheme = () => {
+      const currentTheme = (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
+      setTheme(currentTheme)
+    }
+
+    checkTheme()
+
+    const observer = new MutationObserver(checkTheme)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+
+    window.addEventListener('storage', checkTheme)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('storage', checkTheme)
+    }
+  }, [])
+
+  const mapStyle = theme === 'light' ? lightMapStyle : darkMapStyle
 
   return (
     <div className="space-y-6 h-full">
@@ -54,10 +108,16 @@ export default function Dashboard() {
         <div className="flex-1 bg-surface border border-border rounded-lg overflow-hidden">
           {isLoaded && incidents ? (
             <GoogleMap
+              key={`map-${theme}`}
               mapContainerStyle={{ width: '100%', height: '100%' }}
               center={{ lat: incidents[0]?.latitude ?? 40.7128, lng: incidents[0]?.longitude ?? -74.006 }}
               zoom={12}
-              options={{ styles: mapStyle, disableDefaultUI: true }}
+              options={{
+                styles: mapStyle,
+                disableDefaultUI: true,
+                mapTypeId: 'roadmap',
+                gestureHandling: 'greedy',
+              }}
             >
               <HeatmapLayerF
                 data={incidents.map((incident) => ({
@@ -108,7 +168,7 @@ export default function Dashboard() {
           ) : (
             <div className="h-full flex items-center justify-center bg-gradient-to-br from-base to-surface">
               <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 bg-border rounded-lg animate-pulse" />
+                <div className="w-16 h-16 mx-auto mb-4 bg-skeleton rounded-lg animate-pulse" />
                 <p className="text-text-muted text-sm mb-2">Map View</p>
                 <p className="text-xs text-text-muted max-w-xs">
                   Add your Google Maps API key to localStorage as `googleMapsApiKey` to enable live heatmap rendering.
