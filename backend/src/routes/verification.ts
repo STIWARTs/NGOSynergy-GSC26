@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { geminiService } from '../services/geminiService.js'
+import { firebaseService } from '../services/firebaseService.js'
 import { authMiddleware, adminOnly } from '../middleware/authMiddleware.js'
 
 const router = Router()
@@ -52,11 +53,20 @@ router.post('/approve/:id', authMiddleware, adminOnly, async (req: Request, res:
   try {
     const { id } = req.params
 
+    const item = await firebaseService.getVerificationItem(id)
+    if (!item) {
+      return res.status(404).json({ error: 'Verification item not found' })
+    }
+
+    await firebaseService.updateVerificationItem(id, { status: 'approved' })
+
     res.json({
       success: true,
       message: `Report ${id} approved`,
+      item: { ...item, status: 'approved' },
     })
   } catch (error) {
+    console.error('Approve error:', error)
     res.status(500).json({ error: 'Failed to approve report' })
   }
 })
@@ -66,11 +76,20 @@ router.post('/reject/:id', authMiddleware, adminOnly, async (req: Request, res: 
   try {
     const { id } = req.params
 
+    const item = await firebaseService.getVerificationItem(id)
+    if (!item) {
+      return res.status(404).json({ error: 'Verification item not found' })
+    }
+
+    await firebaseService.updateVerificationItem(id, { status: 'rejected' })
+
     res.json({
       success: true,
       message: `Report ${id} rejected`,
+      item: { ...item, status: 'rejected' },
     })
   } catch (error) {
+    console.error('Reject error:', error)
     res.status(500).json({ error: 'Failed to reject report' })
   }
 })
