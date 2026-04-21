@@ -1,5 +1,5 @@
 import { Incident } from '@/types'
-import { ShieldCheck, AlertTriangle } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 
 interface IncidentFeedItemProps {
   incident: Incident

@@ -1,6 +1,13 @@
 import { Incident } from '@/types'
 import { mockIncidents } from '@/lib/mockData'
 
+interface IncidentStats {
+  activeFieldworkers: number
+  pendingDigitization: number
+  highUrgencyTasks: number
+  avgResponseTime: number
+}
+
 export const incidentService = {
   getAll: async (): Promise<Incident[]> => {
     return new Promise((resolve) => {
@@ -27,7 +34,7 @@ export const incidentService = {
     })
   },
 
-  getStats: async () => {
+  getStats: async (): Promise<IncidentStats> => {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
