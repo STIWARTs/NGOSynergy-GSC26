@@ -1,31 +1,18 @@
 import { VerificationItem } from '@/types'
-import { mockVerificationItems } from '@/lib/mockData'
-
-let queue: VerificationItem[] = [...mockVerificationItems]
-
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+import { fetchApi } from './client'
 
 export const verificationService = {
   async getAll(): Promise<VerificationItem[]> {
-    await wait(180)
-    return [...queue]
+    return fetchApi<VerificationItem[]>('GET', '/api/verification')
   },
   async verify(id: string): Promise<void> {
-    await wait(150)
-    queue = queue.map((item) => (item.id === id ? { ...item, status: 'verified' } : item))
+    return fetchApi<void>('POST', `/api/verification/approve/${id}`)
   },
   async reject(id: string, reason: string): Promise<void> {
-    await wait(150)
-    queue = queue.map((item) =>
-      item.id === id ? { ...item, status: 'rejected', aiAnalysis: `${item.aiAnalysis} Rejection reason: ${reason}.` } : item
-    )
+    return fetchApi<void>('POST', `/api/verification/reject/${id}`, { reason })
   },
   async forwardToGovernment(id: string): Promise<void> {
-    await wait(180)
-    queue = queue.map((item) =>
-      item.id === id
-        ? { ...item, aiAnalysis: `${item.aiAnalysis} Summary forwarded to government coordination channel.` }
-        : item
-    )
+    // TODO: replace with dedicated endpoint when backend supports it
+    return fetchApi<void>('POST', `/api/verification/approve/${id}`)
   },
 }
