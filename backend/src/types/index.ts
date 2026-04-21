@@ -30,7 +30,7 @@ export interface Volunteer {
   name: string
   email: string
   skills: string[]
-  status: 'active' | 'inactive'
+  status: 'active' | 'inactive' | 'deployed'
   currentCoordinates: {
     lat: number
     lng: number
