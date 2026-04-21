@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { VerificationItem } from '@/types'
-import { toast } from 'sonner'
 import * as Dialog from '@radix-ui/react-dialog'
 import { verificationService } from '@/api/verification'
+import { emitGlobalToast } from '@/lib/events'
+import { useRejectReport, useVerificationQueue, useVerifyReport } from '@/hooks/useVerification'
 
 function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
   const toRad = (deg: number) => (deg * Math.PI) / 180
@@ -20,10 +21,13 @@ export default function VerificationCenter() {
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? '')
   const [rejectReason, setRejectReason] = useState('Insufficient evidence')
   const [open, setOpen] = useState(false)
+  const { data: queue = [] } = useVerificationQueue()
+  const verifyMutation = useVerifyReport()
+  const rejectMutation = useRejectReport()
 
   useEffect(() => {
-    void verificationService.getAll().then(setItems)
-  }, [])
+    setItems(queue)
+  }, [queue])
 
   useEffect(() => {
     if (!selectedId && items[0]) setSelectedId(items[0].id)
@@ -34,15 +38,16 @@ export default function VerificationCenter() {
   const updateStatus = async (status: 'verified' | 'rejected') => {
     if (!selectedItem) return
     if (status === 'verified') {
-      await verificationService.verify(selectedItem.id)
+      await verifyMutation.mutateAsync(selectedItem.id)
     } else {
-      await verificationService.reject(selectedItem.id, rejectReason)
+      await rejectMutation.mutateAsync({ id: selectedItem.id, reason: rejectReason })
     }
     const refreshed = await verificationService.getAll()
     setItems(refreshed)
-    setItems((prev) => prev.map((item) => (item.id === selectedItem.id ? { ...item, status } : item)))
     if (status === 'verified') {
-      toast.error('Critical Incident Verified', {
+      emitGlobalToast({
+        type: 'critical_verified',
+        title: 'Critical Incident Verified',
         description: selectedItem.location,
       })
     }
@@ -130,7 +135,11 @@ export default function VerificationCenter() {
                       <button
                         onClick={async () => {
                           await verificationService.forwardToGovernment(selectedItem.id)
-                          toast.message('Forwarded to Government', { description: selectedItem.location })
+                          emitGlobalToast({
+                            type: 'success',
+                            title: 'Forwarded to Government',
+                            description: selectedItem.location,
+                          })
                         }}
                         className="px-4 py-2 rounded bg-action text-white text-sm"
                       >
