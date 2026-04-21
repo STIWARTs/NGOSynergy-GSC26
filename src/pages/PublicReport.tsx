@@ -3,6 +3,10 @@ import { useState } from 'react'
 export default function PublicReportPage() {
   const [phone, setPhone] = useState('')
   const [otpSent, setOtpSent] = useState(false)
+  const [generatedOtp, setGeneratedOtp] = useState('')
+  const [enteredOtp, setEnteredOtp] = useState('')
+  const [otpVerified, setOtpVerified] = useState(false)
+  const [otpError, setOtpError] = useState('')
   const [category, setCategory] = useState('Flood')
   const [location, setLocation] = useState<string | null>(null)
   const [fileName, setFileName] = useState('')
@@ -17,6 +21,29 @@ export default function PublicReportPage() {
         setLocation('Unable to capture location')
       }
     )
+  }
+
+  const sendOtp = () => {
+    const normalized = phone.replace(/\D/g, '')
+    if (normalized.length < 10) {
+      setOtpError('Enter a valid phone number before requesting OTP.')
+      return
+    }
+    const otp = String(Math.floor(100000 + Math.random() * 900000))
+    setGeneratedOtp(otp)
+    setOtpSent(true)
+    setOtpVerified(false)
+    setEnteredOtp('')
+    setOtpError('')
+  }
+
+  const verifyOtp = () => {
+    if (enteredOtp === generatedOtp) {
+      setOtpVerified(true)
+      setOtpError('')
+      return
+    }
+    setOtpError('Invalid OTP. Please check the code and try again.')
   }
 
   return (
@@ -36,16 +63,33 @@ export default function PublicReportPage() {
               className="flex-1 bg-base border border-border rounded px-3 py-2"
             />
             <button
-              onClick={() => setOtpSent(true)}
+              onClick={sendOtp}
               className="px-4 py-2 rounded bg-action text-white"
               disabled={!phone.trim()}
             >
               Send OTP
             </button>
           </div>
+          {otpSent && (
+            <div className="space-y-2">
+              <p className="text-xs text-text-muted">Demo OTP: {generatedOtp}</p>
+              <div className="flex gap-2">
+                <input
+                  value={enteredOtp}
+                  onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Enter 6-digit OTP"
+                  className="flex-1 bg-base border border-border rounded px-3 py-2"
+                />
+                <button onClick={verifyOtp} className="px-4 py-2 rounded bg-base border border-border">
+                  Verify OTP
+                </button>
+              </div>
+              {otpError && <p className="text-xs text-urgency">{otpError}</p>}
+            </div>
+          )}
         </div>
 
-        {otpSent && !trackingId && (
+        {otpVerified && !trackingId && (
           <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
             <h2 className="font-mono">Step 2: Incident Form</h2>
             <select
@@ -74,7 +118,13 @@ export default function PublicReportPage() {
             {fileName && <p className="text-sm text-text-muted">Evidence: {fileName}</p>}
 
             <button
-              onClick={() => setTrackingId(`NGO-${Date.now().toString().slice(-6)}`)}
+              onClick={() => {
+                if (!location || !fileName) {
+                  setOtpError('Capture location and upload evidence before submitting.')
+                  return
+                }
+                setTrackingId(`NGO-${Date.now().toString().slice(-6)}`)
+              }}
               className="px-4 py-2 rounded bg-action text-white"
             >
               Submit Request
