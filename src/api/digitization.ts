@@ -2,6 +2,7 @@ import { mockDigitizationItems } from '@/lib/mockData'
 import { DigitizationItem, DigitizedExtraction } from '@/types'
 
 let digitizationQueue: DigitizationItem[] = [...mockDigitizationItems]
+const committedDocuments: Array<{ id: string; committedAt: Date; payload: DigitizedExtraction }> = []
 
 const createMockExtraction = (filename: string): DigitizedExtraction => ({
   incidentType: 'Flood',
@@ -80,6 +81,7 @@ export const digitizationService = {
     }
 
     digitizationQueue = digitizationQueue.map((entry) => (entry.id === id ? updated : entry))
+    committedDocuments.push({ id, committedAt: new Date(), payload: extractedData })
     return updated
   },
 
@@ -116,5 +118,10 @@ export const digitizationService = {
 
     digitizationQueue = digitizationQueue.map((entry) => (entry.id === id ? updated : entry))
     return updated
+  },
+
+  getCommittedCount: async (): Promise<number> => {
+    await wait(100)
+    return committedDocuments.length
   },
 }
