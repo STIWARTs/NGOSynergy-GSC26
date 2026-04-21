@@ -3,6 +3,7 @@ import StatCard from '@/components/shared/StatCard'
 import IncidentFeedItem from '@/components/shared/IncidentFeedItem'
 import { Skeleton } from '@/components/shared/Skeleton'
 import { GoogleMap, HeatmapLayerF, MarkerF, useJsApiLoader } from '@react-google-maps/api'
+import { mockVolunteers } from '@/lib/mockData'
 
 const mapLibraries: ('visualization')[] = ['visualization']
 const mapStyle = [
@@ -16,7 +17,7 @@ const mapStyle = [
 export default function Dashboard() {
   const { data: incidents, isLoading: incidentsLoading } = useActiveIncidents()
   const { data: stats, isLoading: statsLoading } = useIncidentStats()
-  const apiKey = localStorage.getItem('googleMapsApiKey') ?? ''
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? localStorage.getItem('googleMapsApiKey') ?? ''
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: apiKey,
     libraries: mapLibraries,
@@ -68,11 +69,35 @@ export default function Dashboard() {
                 <MarkerF
                   key={incident.id}
                   position={{ lat: incident.latitude, lng: incident.longitude }}
+                  animation={
+                    incident.status === 'active' && !incident.verified ? google.maps.Animation.BOUNCE : undefined
+                  }
                   icon={{
                     path: google.maps.SymbolPath.CIRCLE,
                     scale: 7,
                     fillColor:
-                      incident.status === 'resolved' ? '#16A34A' : incident.status === 'active' ? '#DC2626' : '#2563EB',
+                      incident.status === 'resolved' || (incident.verified && incident.vertexVerified)
+                        ? '#16A34A'
+                        : incident.status === 'active'
+                          ? '#DC2626'
+                          : '#2563EB',
+                    fillOpacity: 1,
+                    strokeWeight: 1,
+                    strokeColor: '#F1F5F9',
+                  }}
+                />
+              ))}
+              {mockVolunteers.filter((v) => v.status === 'active').slice(0, 8).map((volunteer, index) => (
+                <MarkerF
+                  key={volunteer.id}
+                  position={{
+                    lat: (incidents?.[0]?.latitude ?? 40.7128) + 0.01 + index * 0.002,
+                    lng: (incidents?.[0]?.longitude ?? -74.006) - 0.01 - index * 0.002,
+                  }}
+                  icon={{
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 5,
+                    fillColor: '#2563EB',
                     fillOpacity: 1,
                     strokeWeight: 1,
                     strokeColor: '#F1F5F9',
