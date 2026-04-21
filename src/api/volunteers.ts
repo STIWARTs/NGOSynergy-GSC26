@@ -1,5 +1,5 @@
 import { Volunteer } from '@/types'
-import { mockVolunteers } from '@/lib/mockData'
+import { fetchApi } from './client'
 
 interface VolunteerQueryFilters {
   status?: string
@@ -21,48 +21,19 @@ export const volunteerService = {
     page = 1,
     pageSize = 10
   ): Promise<VolunteerListResponse> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        let results = [...mockVolunteers]
+    const params = new URLSearchParams()
+    if (search) params.append('search', search)
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.minReliability) params.append('minReliability', String(filters.minReliability))
+    if (filters?.skill) params.append('skill', filters.skill)
+    params.append('page', String(page))
+    params.append('pageSize', String(pageSize))
 
-        if (search) {
-          const term = search.toLowerCase()
-          results = results.filter(
-            (v) =>
-              v.name.toLowerCase().includes(term) ||
-              v.skills.some((s) => s.toLowerCase().includes(term)) ||
-              v.certifications.some((c) => c.toLowerCase().includes(term))
-          )
-        }
-
-        if (filters?.status) {
-          results = results.filter((v) => v.status === filters.status)
-        }
-
-        if (filters?.minReliability) {
-          results = results.filter((v) => v.reliability >= (filters.minReliability ?? 0))
-        }
-
-        if (filters?.skill) {
-          const skillTerm = filters.skill.toLowerCase()
-          results = results.filter((v) => v.skills.some((skill) => skill.toLowerCase().includes(skillTerm)))
-        }
-
-        const total = results.length
-        const start = (page - 1) * pageSize
-        const items = results.slice(start, start + pageSize)
-
-        resolve({ items, total, page, pageSize })
-      }, 300)
-    })
+    const query = params.toString()
+    return fetchApi<VolunteerListResponse>('GET', `/api/volunteers${query ? `?${query}` : ''}`)
   },
 
   getById: async (id: string): Promise<Volunteer | null> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const volunteer = mockVolunteers.find((v) => v.id === id)
-        resolve(volunteer || null)
-      }, 200)
-    })
+    return fetchApi<Volunteer>('GET', `/api/volunteers/${id}`)
   },
 }
