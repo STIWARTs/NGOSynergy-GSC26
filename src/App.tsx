@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AIWeightsProvider } from './context/AIWeightsContext'
@@ -20,6 +20,9 @@ const queryClient = new QueryClient({
 function App() {
   const skipAuth = localStorage.getItem('skipAuth') === 'true'
   const isAuthenticated = skipAuth || !!localStorage.getItem('authToken')
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
+  )
 
   useEffect(() => {
     const handleGlobalToast = (event: Event) => {
@@ -37,6 +40,23 @@ function App() {
 
     window.addEventListener(GLOBAL_TOAST_EVENT, handleGlobalToast)
     return () => window.removeEventListener(GLOBAL_TOAST_EVENT, handleGlobalToast)
+  }, [])
+
+  useEffect(() => {
+    const syncTheme = () => {
+      const currentTheme = (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
+      setTheme(currentTheme)
+    }
+
+    syncTheme()
+    const observer = new MutationObserver(syncTheme)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    window.addEventListener('storage', syncTheme)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('storage', syncTheme)
+    }
   }, [])
 
   return (
@@ -57,7 +77,7 @@ function App() {
               }
             />
           </Routes>
-          <Toaster theme="dark" />
+          <Toaster theme={theme} />
         </Router>
       </AIWeightsProvider>
     </QueryClientProvider>
