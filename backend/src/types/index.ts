@@ -8,12 +8,13 @@ export interface Incident {
   id: string
   category: string
   severity: number
-  status: 'pending' | 'verified' | 'resolved'
+  impact?: number
+  status: 'pending' | 'verified' | 'resolved' | 'active'
   coordinates: {
     lat: number
     lng: number
   }
-  photoUrl: string
+  photoUrl?: string
   urgencyScore: number
   timestamp: string
   verified: boolean
