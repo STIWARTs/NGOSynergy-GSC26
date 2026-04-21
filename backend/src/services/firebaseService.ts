@@ -92,6 +92,22 @@ export const firebaseService = {
     await db.collection('globalConfig').doc('ai_weights').update(config)
   },
 
+  // Digitization Queue
+  async getDigitizationQueue(): Promise<any[]> {
+    const snapshot = await db.collection('digitization_queue').get()
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+  },
+
+  // Verification Items
+  async getVerificationItem(itemId: string): Promise<any | null> {
+    const doc = await db.collection('verifications').doc(itemId).get()
+    return doc.exists ? { id: doc.id, ...doc.data() } : null
+  },
+
+  async updateVerificationItem(itemId: string, updates: any): Promise<void> {
+    await db.collection('verifications').doc(itemId).update(updates)
+  },
+
   // Stats
   async getStats(): Promise<{
     activeFieldworkers: number
