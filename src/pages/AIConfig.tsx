@@ -99,28 +99,32 @@ export default function AIConfig() {
 
       <div className="bg-surface border border-border rounded-lg p-4 space-y-4">
         <h2 className="font-mono text-text-primary">Urgency Multipliers</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <label className="text-sm text-text-primary">
-            Impact
-            <input
-              type="number"
+        {(
+          [
+            ['impact', 'Impact'],
+            ['severity', 'Severity'],
+          ] as Array<[keyof typeof multipliers, string]>
+        ).map(([key, label]) => (
+          <div key={key} className="space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-text-primary">{label}</span>
+              <span className="text-text-muted">{multipliers[key].toFixed(1)}</span>
+            </div>
+            <Slider.Root
+              className="relative flex items-center select-none touch-none w-full h-5"
+              min={0.5}
+              max={2}
               step={0.1}
-              value={multipliers.impact}
-              onChange={(e) => setMultipliers({ ...multipliers, impact: Number(e.target.value) })}
-              className="w-full mt-1 bg-base border border-border rounded px-3 py-2 text-text-primary"
-            />
-          </label>
-          <label className="text-sm text-text-primary">
-            Severity
-            <input
-              type="number"
-              step={0.1}
-              value={multipliers.severity}
-              onChange={(e) => setMultipliers({ ...multipliers, severity: Number(e.target.value) })}
-              className="w-full mt-1 bg-base border border-border rounded px-3 py-2 text-text-primary"
-            />
-          </label>
-        </div>
+              value={[multipliers[key]]}
+              onValueChange={(value) => setMultipliers({ ...multipliers, [key]: value[0] })}
+            >
+              <Slider.Track className="bg-base relative grow rounded-full h-2">
+                <Slider.Range className="absolute bg-action rounded-full h-full" />
+              </Slider.Track>
+              <Slider.Thumb className="block w-4 h-4 bg-text-primary rounded-full shadow" />
+            </Slider.Root>
+          </div>
+        ))}
         <button
           onClick={resetMultipliers}
           className="px-3 py-2 text-sm rounded bg-base border border-border text-text-primary"
