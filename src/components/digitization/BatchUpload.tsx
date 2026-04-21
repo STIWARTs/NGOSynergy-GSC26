@@ -122,7 +122,7 @@ export default function BatchUpload({ onSelectForVerification }: BatchUploadProp
           </div>
           <div className="divide-y divide-border">
             {uploadedFiles.map((file) => (
-              <div key={file.id} className="px-6 py-4 hover:bg-base/50 transition-colors">
+              <div key={file.id} className="px-6 py-4 hover:bg-hover/50 transition-colors">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
@@ -156,7 +156,7 @@ export default function BatchUpload({ onSelectForVerification }: BatchUploadProp
                     )}
                     <button
                       onClick={() => removeFile(file.id)}
-                      className="p-1 hover:bg-base rounded transition-colors"
+                      className="p-1 hover:bg-hover rounded transition-colors"
                     >
                       <X className="w-4 h-4 text-text-muted hover:text-text-primary" />
                     </button>
