@@ -1,6 +1,11 @@
 import { useRef, useState } from 'react'
 import { Upload, X, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
-import { useDigitizationProgress, useDigitizationQueue, useUploadDigitizationFiles } from '@/hooks/useDigitization'
+import {
+  useDigitizationProgress,
+  useDigitizationQueue,
+  useDiscardDigitization,
+  useUploadDigitizationFiles,
+} from '@/hooks/useDigitization'
 
 interface BatchUploadProps {
   onSelectForVerification: (itemId: string) => void
@@ -12,6 +17,7 @@ export default function BatchUpload({ onSelectForVerification }: BatchUploadProp
   const { data: queue = [] } = useDigitizationQueue()
   const uploadMutation = useUploadDigitizationFiles('batch')
   const progressMutation = useDigitizationProgress()
+  const discardMutation = useDiscardDigitization()
   const uploadedFiles = queue.filter((item) => item.status !== 'discarded')
 
   const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
@@ -69,7 +75,7 @@ export default function BatchUpload({ onSelectForVerification }: BatchUploadProp
   }
 
   const removeFile = (id: string) => {
-    void onSelectForVerification(id)
+    void discardMutation.mutateAsync(id)
   }
 
   return (
