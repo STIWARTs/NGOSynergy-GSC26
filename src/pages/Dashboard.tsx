@@ -1,9 +1,9 @@
 import { useActiveIncidents, useIncidentStats } from '@/hooks/useIncidents'
+import { useVolunteers } from '@/hooks/useVolunteers'
 import StatCard from '@/components/shared/StatCard'
 import IncidentFeedItem from '@/components/shared/IncidentFeedItem'
 import { Skeleton } from '@/components/shared/Skeleton'
 import { GoogleMap, HeatmapLayerF, MarkerF, useJsApiLoader } from '@react-google-maps/api'
-import { mockVolunteers } from '@/lib/mockData'
 import { useState, useEffect } from 'react'
 
 const mapLibraries: ('visualization')[] = ['visualization']
@@ -32,6 +32,7 @@ export default function Dashboard() {
   )
   const { data: incidents, isLoading: incidentsLoading } = useActiveIncidents()
   const { data: stats, isLoading: statsLoading } = useIncidentStats()
+  const { data: volunteersData } = useVolunteers(undefined, undefined, 1, 8)
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? localStorage.getItem('googleMapsApiKey') ?? ''
   const { isLoaded } = useJsApiLoader({
     id: 'google-maps-script',
@@ -105,7 +106,7 @@ export default function Dashboard() {
               <HeatmapLayerF
                 data={incidents.map((incident) => ({
                   location: new google.maps.LatLng(incident.coordinates.lat, incident.coordinates.lng),
-                  weight: incident.severity * incident.impact,
+                  weight: incident.urgencyScore,
                 }))}
               />
               {incidents.map((incident) => (
@@ -130,7 +131,7 @@ export default function Dashboard() {
                   }}
                 />
               ))}
-              {mockVolunteers.filter((v) => v.status === 'active').slice(0, 8).map((volunteer, index) => (
+              {(volunteersData?.items ?? []).filter((v: any) => v.status === 'active').slice(0, 8).map((volunteer: any, index: number) => (
                 <MarkerF
                   key={volunteer.id}
                   position={{
