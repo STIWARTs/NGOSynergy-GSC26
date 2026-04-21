@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useVolunteers } from '@/hooks/useVolunteers'
 import VolunteerTable from '@/components/shared/VolunteerTable'
 import VolunteerProfileSheet from '@/components/shared/VolunteerProfileSheet'
@@ -10,11 +10,22 @@ export default function VolunteerDirectory() {
   const [selectedVolunteer, setSelectedVolunteer] = useState<Volunteer | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [page, setPage] = useState(1)
+  const pageSize = 10
 
-  const { data: volunteers = [], isLoading } = useVolunteers(
+  const { data, isLoading } = useVolunteers(
     search || undefined,
-    statusFilter ? { status: statusFilter } : undefined
+    statusFilter ? { status: statusFilter } : undefined,
+    page,
+    pageSize
   )
+  const volunteers = data?.items ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter])
 
   const handleViewProfile = (volunteer: Volunteer) => {
     setSelectedVolunteer(volunteer)
@@ -27,7 +38,7 @@ export default function VolunteerDirectory() {
         <h1 className="text-3xl font-mono font-semibold text-text-primary mb-4">
           Volunteer Directory
         </h1>
-        <p className="text-text-muted text-sm">{volunteers.length} volunteers available</p>
+        <p className="text-text-muted text-sm">{total} volunteers available</p>
       </div>
 
       <div className="space-y-4">
@@ -62,6 +73,25 @@ export default function VolunteerDirectory() {
           isLoading={isLoading}
           onViewProfile={handleViewProfile}
         />
+      </div>
+      <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          className="px-3 py-1 rounded border border-border text-sm text-text-primary"
+          disabled={page === 1}
+        >
+          Previous
+        </button>
+        <span className="text-sm text-text-muted">
+          Page {page} of {totalPages}
+        </span>
+        <button
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          className="px-3 py-1 rounded border border-border text-sm text-text-primary"
+          disabled={page >= totalPages}
+        >
+          Next
+        </button>
       </div>
 
       <VolunteerProfileSheet
