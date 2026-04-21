@@ -9,15 +9,33 @@ import {
   mockVerifications,
 } from '../lib/mockData.js'
 
+let firestoreAvailable: boolean | null = null
+
 function getDb() {
   try {
-    if (admin.apps.length > 0) {
+    if (admin.apps.length > 0 && firestoreAvailable !== false) {
       return admin.firestore()
     }
   } catch {
     // ignore
   }
   return null
+}
+
+async function firestoreFallback<T>(
+  dbCall: () => Promise<T>,
+  fallback: T
+): Promise<T> {
+  if (firestoreAvailable === false) return fallback
+  try {
+    const result = await dbCall()
+    firestoreAvailable = true
+    return result
+  } catch (err) {
+    console.warn('Firestore call failed — switching to mock fallback:', (err as Error).message)
+    firestoreAvailable = false
+    return fallback
+  }
 }
 
 export const firebaseService = {
@@ -64,34 +82,34 @@ export const firebaseService = {
   },
 
   async getIncidentsByStatus(status: string): Promise<Incident[]> {
-    const db = getDb()
-    if (!db) {
-      return mockIncidents.filter((i) => i.status === status)
-    }
-    const snapshot = await db.collection('incidents').where('status', '==', status).get()
-    return snapshot.docs.map((doc) => doc.data() as Incident)
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) return mockIncidents.filter((i) => i.status === status)
+      const snapshot = await db.collection('incidents').where('status', '==', status).get()
+      return snapshot.docs.map((doc) => doc.data() as Incident)
+    }, mockIncidents.filter((i) => i.status === status))
   },
 
   async getAllIncidents(): Promise<Incident[]> {
-    const db = getDb()
-    if (!db) {
-      return [...mockIncidents]
-    }
-    const snapshot = await db.collection('incidents').get()
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Incident))
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) return [...mockIncidents]
+      const snapshot = await db.collection('incidents').get()
+      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Incident))
+    }, [...mockIncidents])
   },
 
   async getHighUrgencyIncidents(threshold: number = 70): Promise<Incident[]> {
-    const db = getDb()
-    if (!db) {
-      return mockIncidents.filter((i) => i.urgencyScore >= threshold && i.status !== 'resolved')
-    }
-    const snapshot = await db
-      .collection('incidents')
-      .where('urgencyScore', '>=', threshold)
-      .where('status', '!=', 'resolved')
-      .get()
-    return snapshot.docs.map((doc) => doc.data() as Incident)
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) return mockIncidents.filter((i) => i.urgencyScore >= threshold && i.status !== 'resolved')
+      const snapshot = await db
+        .collection('incidents')
+        .where('urgencyScore', '>=', threshold)
+        .where('status', '!=', 'resolved')
+        .get()
+      return snapshot.docs.map((doc) => doc.data() as Incident)
+    }, mockIncidents.filter((i) => i.urgencyScore >= threshold && i.status !== 'resolved'))
   },
 
   // Volunteers
@@ -105,21 +123,21 @@ export const firebaseService = {
   },
 
   async getActiveVolunteers(): Promise<Volunteer[]> {
-    const db = getDb()
-    if (!db) {
-      return mockVolunteers.filter((v) => v.status === 'active')
-    }
-    const snapshot = await db.collection('volunteers').where('status', '==', 'active').get()
-    return snapshot.docs.map((doc) => doc.data() as Volunteer)
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) return mockVolunteers.filter((v) => v.status === 'active')
+      const snapshot = await db.collection('volunteers').where('status', '==', 'active').get()
+      return snapshot.docs.map((doc) => doc.data() as Volunteer)
+    }, mockVolunteers.filter((v) => v.status === 'active'))
   },
 
   async getAllVolunteers(): Promise<Volunteer[]> {
-    const db = getDb()
-    if (!db) {
-      return [...mockVolunteers]
-    }
-    const snapshot = await db.collection('volunteers').get()
-    return snapshot.docs.map((doc) => doc.data() as Volunteer)
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) return [...mockVolunteers]
+      const snapshot = await db.collection('volunteers').get()
+      return snapshot.docs.map((doc) => doc.data() as Volunteer)
+    }, [...mockVolunteers])
   },
 
   async updateVolunteer(volunteerId: string, updates: Partial<Volunteer>): Promise<void> {
@@ -212,12 +230,12 @@ export const firebaseService = {
 
   // Verification Items
   async getVerifications(): Promise<any[]> {
-    const db = getDb()
-    if (!db) {
-      return [...mockVerifications]
-    }
-    const snapshot = await db.collection('verifications').get()
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) return [...mockVerifications]
+      const snapshot = await db.collection('verifications').get()
+      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    }, [...mockVerifications])
   },
 
   async getVerificationItem(itemId: string): Promise<any | null> {
@@ -249,27 +267,34 @@ export const firebaseService = {
     highUrgencyTasks: number
     avgResponseTime: number
   }> {
-    const db = getDb()
-    if (!db) {
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) {
+        return {
+          activeFieldworkers: mockVolunteers.filter((v) => v.status === 'active').length,
+          pendingDigitization: mockDigitizationQueue.filter((d) => d.status === 'pending' || d.status === 'processing').length,
+          highUrgencyTasks: mockIncidents.filter((i) => i.urgencyScore >= 70 && i.status !== 'resolved').length,
+          avgResponseTime: 24,
+        }
+      }
+      const volunteersSnapshot = await db.collection('volunteers').where('status', '==', 'active').get()
+      const highUrgencySnapshot = await db
+        .collection('incidents')
+        .where('urgencyScore', '>=', 70)
+        .where('status', '!=', 'resolved')
+        .get()
+
       return {
-        activeFieldworkers: mockVolunteers.filter((v) => v.status === 'active').length,
-        pendingDigitization: mockDigitizationQueue.filter((d) => d.status === 'pending' || d.status === 'processing').length,
-        highUrgencyTasks: mockIncidents.filter((i) => i.urgencyScore >= 70 && i.status !== 'resolved').length,
+        activeFieldworkers: volunteersSnapshot.size,
+        pendingDigitization: 0,
+        highUrgencyTasks: highUrgencySnapshot.size,
         avgResponseTime: 24,
       }
-    }
-    const volunteersSnapshot = await db.collection('volunteers').where('status', '==', 'active').get()
-    const highUrgencySnapshot = await db
-      .collection('incidents')
-      .where('urgencyScore', '>=', 70)
-      .where('status', '!=', 'resolved')
-      .get()
-
-    return {
-      activeFieldworkers: volunteersSnapshot.size,
-      pendingDigitization: 0, // Would be tracked separately
-      highUrgencyTasks: highUrgencySnapshot.size,
+    }, {
+      activeFieldworkers: mockVolunteers.filter((v) => v.status === 'active').length,
+      pendingDigitization: mockDigitizationQueue.filter((d) => d.status === 'pending' || d.status === 'processing').length,
+      highUrgencyTasks: mockIncidents.filter((i) => i.urgencyScore >= 70 && i.status !== 'resolved').length,
       avgResponseTime: 24,
-    }
+    })
   },
 }
