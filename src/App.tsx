@@ -7,6 +7,7 @@ import AppLayout from './components/layout/AppLayout'
 import LoginPage from './pages/Login'
 import PublicReportPage from './pages/PublicReport'
 import { GLOBAL_TOAST_EVENT, GlobalToastEventDetail } from './lib/events'
+import { onFirebaseAuthChange, isFirebaseConfigured, User, getIdToken } from './lib/firebase'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,11 +19,36 @@ const queryClient = new QueryClient({
 })
 
 function App() {
-  const skipAuth = localStorage.getItem('skipAuth') === 'true'
-  const isAuthenticated = skipAuth || !!localStorage.getItem('authToken')
+  // If Firebase is configured, auth state is driven by it.
+  // Otherwise fall back to localStorage token (dev mode).
+  const [authChecked, setAuthChecked] = useState(!isFirebaseConfigured)
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null)
+
+  const localToken = localStorage.getItem('authToken') || localStorage.getItem('skipAuth')
+  const isAuthenticated = isFirebaseConfigured
+    ? authChecked && firebaseUser !== null
+    : !!localToken
+
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
   )
+
+  // Listen to Firebase auth state changes
+  useEffect(() => {
+    if (!isFirebaseConfigured) return
+    const unsub = onFirebaseAuthChange(async (user) => {
+      setFirebaseUser(user)
+      if (user) {
+        // Refresh the ID token in localStorage so API calls always have a fresh token
+        const token = await getIdToken()
+        if (token) localStorage.setItem('authToken', token)
+      } else {
+        localStorage.removeItem('authToken')
+      }
+      setAuthChecked(true)
+    })
+    return unsub
+  }, [])
 
   useEffect(() => {
     const handleGlobalToast = (event: Event) => {
@@ -58,6 +84,11 @@ function App() {
       window.removeEventListener('storage', syncTheme)
     }
   }, [])
+
+  // Show blank while Firebase checks auth state
+  if (isFirebaseConfigured && !authChecked) {
+    return <div className="min-h-screen bg-base" />
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
