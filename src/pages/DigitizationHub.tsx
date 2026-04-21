@@ -4,6 +4,7 @@ import BatchUpload from '@/components/digitization/BatchUpload'
 import SingleDocument from '@/components/digitization/SingleDocument'
 import HITLVerification from '@/components/digitization/HITLVerification'
 import { useDigitizationQueue } from '@/hooks/useDigitization'
+import * as Dialog from '@radix-ui/react-dialog'
 
 export default function DigitizationHub() {
   const [activeTab, setActiveTab] = useState<'single' | 'batch'>('batch')
@@ -26,12 +27,21 @@ export default function DigitizationHub() {
         <h1 className="text-3xl font-mono font-semibold text-text-primary">Digitization Hub</h1>
       </div>
 
-      {selectedItemForVerification ? (
-        <HITLVerification
-          itemId={selectedItemForVerification}
-          onBack={() => setSelectedItemForVerification(null)}
-        />
-      ) : (
+      <Dialog.Root open={!!selectedItemForVerification} onOpenChange={(open) => !open && setSelectedItemForVerification(null)}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40" />
+          <Dialog.Content className="fixed right-0 top-0 h-full w-full max-w-6xl bg-surface border-l border-border z-50 p-6 overflow-y-auto">
+            {selectedItemForVerification && (
+              <HITLVerification
+                itemId={selectedItemForVerification}
+                onBack={() => setSelectedItemForVerification(null)}
+              />
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {!selectedItemForVerification && (
         <>
           <div className="flex gap-2 border-b border-border">
             <button
