@@ -1,11 +1,12 @@
 import { useMemo } from 'react'
 import { useAIWeights } from '@/context/AIWeightsContext'
-import { toast } from 'sonner'
 import * as Slider from '@radix-ui/react-slider'
-import { configService } from '@/api/config'
+import { useSaveConfig } from '@/hooks/useConfig'
+import { emitGlobalToast } from '@/lib/events'
 
 export default function AIConfig() {
   const { weights, multipliers, setWeights, setMultipliers, resetWeights, resetMultipliers } = useAIWeights()
+  const saveConfig = useSaveConfig()
 
   const weightTotal = useMemo(
     () => weights.skillMatch + weights.proximity + weights.availability + weights.reliability,
@@ -80,9 +81,12 @@ export default function AIConfig() {
         </div>
         <button
           onClick={async () => {
-            await configService.patchWeights(weights)
-            await configService.patchMultipliers(multipliers)
-            toast.message('Configuration Saved', { description: 'PATCH /api/vertex/weights simulated successfully.' })
+            await saveConfig.mutateAsync({ weights, multipliers })
+            emitGlobalToast({
+              type: 'success',
+              title: 'Configuration Saved',
+              description: 'PATCH /api/vertex/weights simulated successfully.',
+            })
           }}
           className="px-3 py-2 text-sm rounded bg-action text-white"
         >
