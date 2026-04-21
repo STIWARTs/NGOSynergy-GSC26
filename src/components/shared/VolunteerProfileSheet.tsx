@@ -93,6 +93,33 @@ export default function VolunteerProfileSheet({
             <p className="text-xs text-text-muted mt-1">successful assignments</p>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-text-muted mb-2">Deployment History</label>
+            <div className="border border-border rounded-lg overflow-hidden">
+              <div className="grid grid-cols-3 text-xs text-text-muted bg-base px-3 py-2">
+                <span>Mission</span>
+                <span>Role</span>
+                <span>Outcome</span>
+              </div>
+              {[1, 2, 3].map((entry) => (
+                <div key={entry} className="grid grid-cols-3 px-3 py-2 text-xs border-t border-border">
+                  <span className="text-text-primary">Response #{entry}</span>
+                  <span className="text-text-muted">{volunteer.skills[0]}</span>
+                  <span className="text-success">Completed</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-muted mb-2">Reliability Trend</label>
+            <div className="h-20 border border-border rounded-lg p-3 flex items-end gap-2 bg-base">
+              {[0.82, 0.86, 0.88, 0.91, volunteer.reliability].map((value, idx) => (
+                <div key={idx} className="flex-1 bg-action/70 rounded-sm" style={{ height: `${value * 70}px` }} />
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-base border border-border rounded-lg p-3">
               <p className="text-xs text-text-muted mb-1">Distance</p>

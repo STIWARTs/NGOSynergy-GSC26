@@ -4,6 +4,7 @@ import { mockVolunteers } from '@/lib/mockData'
 interface VolunteerQueryFilters {
   status?: string
   minReliability?: number
+  skill?: string
 }
 
 interface VolunteerListResponse {
@@ -40,6 +41,11 @@ export const volunteerService = {
 
         if (filters?.minReliability) {
           results = results.filter((v) => v.reliability >= (filters.minReliability ?? 0))
+        }
+
+        if (filters?.skill) {
+          const skillTerm = filters.skill.toLowerCase()
+          results = results.filter((v) => v.skills.some((skill) => skill.toLowerCase().includes(skillTerm)))
         }
 
         const total = results.length
