@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express'
 import { firebaseService } from '../services/firebaseService.js'
-import { geoService } from '../services/geoService.js'
 import { authMiddleware, adminOnly } from '../middleware/authMiddleware.js'
 
 const router = Router()
@@ -8,7 +7,14 @@ const router = Router()
 // Get all incidents (admin only)
 router.get('/', authMiddleware, adminOnly, async (req: Request, res: Response) => {
   try {
-    const incidents = await firebaseService.getIncidentsByStatus('pending')
+    const status = req.query.status as string | undefined
+    let incidents
+    if (status) {
+      incidents = await firebaseService.getIncidentsByStatus(status)
+    } else {
+      // Return all incidents (all statuses)
+      incidents = await firebaseService.getAllIncidents()
+    }
     res.json(incidents)
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch incidents' })
