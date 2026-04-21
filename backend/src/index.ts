@@ -20,16 +20,22 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 // Initialize Firebase Admin
-const serviceAccount = {
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-}
+try {
+  const serviceAccount = {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  }
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount as any),
-  projectId: process.env.FIREBASE_PROJECT_ID,
-})
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount as any),
+    projectId: process.env.FIREBASE_PROJECT_ID,
+  })
+  console.log('Firebase Admin initialized successfully')
+} catch (err) {
+  console.warn('Firebase Admin initialization failed — running in mock mode')
+  console.warn((err as Error).message)
+}
 
 const app = express()
 const PORT = process.env.PORT || 8080
