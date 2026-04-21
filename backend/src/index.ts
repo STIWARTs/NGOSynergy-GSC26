@@ -19,11 +19,30 @@ dotenv.config()
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
+// Robust Firebase private-key normalizer
+function normalizePrivateKey(key: string | undefined): string | undefined {
+  if (!key) return undefined
+  // 1. If the key was JSON-stringified (has literal \\n), parse it
+  if (key.startsWith('"') && key.endsWith('"')) {
+    try {
+      const parsed = JSON.parse(key)
+      if (typeof parsed === 'string') return parsed
+    } catch {
+      // ignore — fall through
+    }
+  }
+  // 2. Replace literal escaped newlines (\n) with real newlines
+  return key.replace(/\\n/g, '\n')
+}
+
 // Initialize Firebase Admin
 try {
+  const rawKey = process.env.FIREBASE_PRIVATE_KEY
+  const privateKey = normalizePrivateKey(rawKey)
+
   const serviceAccount = {
     projectId: process.env.FIREBASE_PROJECT_ID,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    privateKey,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
   }
 
