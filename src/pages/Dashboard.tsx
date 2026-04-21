@@ -26,24 +26,6 @@ const darkMapStyle = [
   { featureType: 'administrative.province', elementType: 'geometry.stroke', stylers: [{ color: '#334155' }] },
 ]
 
-const lightMapStyle = [
-  { stylers: [{ saturation: 0 }, { lightness: 100 }] },
-  { elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-  { elementType: 'geometry.fill', stylers: [{ color: '#ffffff' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#0f172a' }] },
-  { featureType: 'all', elementType: 'geometry.fill', stylers: [{ color: '#f8fafc' }] },
-  { featureType: 'all', elementType: 'geometry.stroke', stylers: [{ color: '#e2e8f0' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#e2e8f0' }] },
-  { featureType: 'road.highway', elementType: 'geometry.fill', stylers: [{ color: '#cbd5e1' }] },
-  { featureType: 'road.arterial', elementType: 'geometry.fill', stylers: [{ color: '#e2e8f0' }] },
-  { featureType: 'road.local', elementType: 'geometry.fill', stylers: [{ color: '#e2e8f0' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#cbd5e1' }] },
-  { featureType: 'water', elementType: 'geometry.fill', stylers: [{ color: '#cbd5e1' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#cbd5e1' }] },
-  { featureType: 'administrative.province', elementType: 'geometry.stroke', stylers: [{ color: '#cbd5e1' }] },
-]
-
 export default function Dashboard() {
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
@@ -52,6 +34,7 @@ export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useIncidentStats()
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? localStorage.getItem('googleMapsApiKey') ?? ''
   const { isLoaded } = useJsApiLoader({
+    id: 'google-maps-script',
     googleMapsApiKey: apiKey,
     libraries: mapLibraries,
   })
@@ -75,7 +58,7 @@ export default function Dashboard() {
     }
   }, [])
 
-  const mapStyle = theme === 'light' ? lightMapStyle : darkMapStyle
+  const mapStyle = theme === 'light' ? undefined : darkMapStyle
 
   return (
     <div className="space-y-6 h-full">

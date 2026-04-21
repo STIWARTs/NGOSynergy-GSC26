@@ -6,8 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NGO Synergy - Admin Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      (function () {
+        var storedTheme = localStorage.getItem('theme')
+        var resolvedTheme =
+          storedTheme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+        document.documentElement.setAttribute('data-theme', resolvedTheme)
+      })()
+    </script>
   </head>
-  <body class="bg-slate-900">
+  <body class="bg-base">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
