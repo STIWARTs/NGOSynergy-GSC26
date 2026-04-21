@@ -3,30 +3,30 @@ export interface Incident {
   title: string
   category: string
   location: string
-  latitude: number
-  longitude: number
+  coordinates: { lat: number; lng: number }
   severity: number
   impact: number
   urgencyScore: number
-  timestamp: Date
+  timestamp: string
   status: 'active' | 'pending' | 'resolved'
   reporterName: string
   description: string
   affectedCount: number
   photoUrl?: string
   verified: boolean
-  vertexVerified: boolean
+  geminiVerified: boolean
 }
 
 export interface Volunteer {
   id: string
   name: string
   skills: string[]
-  distance: number
-  reliability: number
+  distance?: number
+  reliabilityScore: number
   status: 'active' | 'inactive' | 'deployed'
   avatarInitials: string
-  contact: string
+  email: string
+  contact?: string
   certifications: string[]
   pastDeployments: number
 }
