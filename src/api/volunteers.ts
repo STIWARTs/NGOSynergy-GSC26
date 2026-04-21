@@ -1,8 +1,25 @@
 import { Volunteer } from '@/types'
 import { mockVolunteers } from '@/lib/mockData'
 
+interface VolunteerQueryFilters {
+  status?: string
+  minReliability?: number
+}
+
+interface VolunteerListResponse {
+  items: Volunteer[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export const volunteerService = {
-  getAll: async (search?: string, filters?: any): Promise<Volunteer[]> => {
+  getAll: async (
+    search?: string,
+    filters?: VolunteerQueryFilters,
+    page = 1,
+    pageSize = 10
+  ): Promise<VolunteerListResponse> => {
     return new Promise((resolve) => {
       setTimeout(() => {
         let results = [...mockVolunteers]
@@ -22,10 +39,14 @@ export const volunteerService = {
         }
 
         if (filters?.minReliability) {
-          results = results.filter((v) => v.reliability >= filters.minReliability)
+          results = results.filter((v) => v.reliability >= (filters.minReliability ?? 0))
         }
 
-        resolve(results)
+        const total = results.length
+        const start = (page - 1) * pageSize
+        const items = results.slice(start, start + pageSize)
+
+        resolve({ items, total, page, pageSize })
       }, 300)
     })
   },
