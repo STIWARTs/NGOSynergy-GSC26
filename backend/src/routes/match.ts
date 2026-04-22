@@ -14,7 +14,11 @@ router.post('/calculate', authMiddleware, adminOnly, async (req: Request, res: R
       return res.status(400).json({ errors: validation.error.flatten() })
     }
 
-    const matches = await matchingService.calculateMatches(validation.data.incidentId, 10)
+    const matches = await matchingService.calculateMatches(
+      validation.data.incidentId,
+      validation.data.limit ?? 10,
+      validation.data.radiusKm ?? 30
+    )
     res.json({
       incidentId: validation.data.incidentId,
       matches,
