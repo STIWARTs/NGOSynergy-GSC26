@@ -40,6 +40,8 @@ export interface Volunteer {
   fcmToken: string
   certifications: string[]
   pastDeployments: number
+  avatarInitials?: string
+  distance?: number
 }
 
 export interface Assignment {
