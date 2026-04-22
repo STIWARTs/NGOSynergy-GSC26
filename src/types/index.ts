@@ -29,6 +29,9 @@ export interface Volunteer {
   contact?: string
   certifications: string[]
   pastDeployments: number
+  // Volunteer-provided home/base location (not live tracking)
+  homeCoordinates?: { lat: number; lng: number }
+  // Optional live location if added later
   currentCoordinates?: { lat: number; lng: number }
 }
 
