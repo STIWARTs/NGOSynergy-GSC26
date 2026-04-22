@@ -8,7 +8,7 @@ export interface Incident {
   impact: number
   urgencyScore: number
   timestamp: string
-  status: 'active' | 'pending' | 'resolved'
+  status: 'active' | 'pending' | 'resolved' | 'verified'
   reporterName: string
   description: string
   affectedCount: number
@@ -29,6 +29,7 @@ export interface Volunteer {
   contact?: string
   certifications: string[]
   pastDeployments: number
+  currentCoordinates?: { lat: number; lng: number }
 }
 
 export interface DigitizationItem {
