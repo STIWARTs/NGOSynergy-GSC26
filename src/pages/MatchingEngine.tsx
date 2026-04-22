@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { mockIncidents, mockVolunteers } from '@/lib/mockData'
 import { useAIWeights } from '@/context/AIWeightsContext'
 import { GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-maps/api'
 import { Skeleton } from '@/components/shared/Skeleton'
 import { emitGlobalToast } from '@/lib/events'
 import { useDeployMatch, useMatchResults } from '@/hooks/useMatching'
 import SkillBadge from '@/components/shared/SkillBadge'
+import { useActiveIncidents } from '@/hooks/useIncidents'
+import { useVolunteers } from '@/hooks/useVolunteers'
 
 const mapLibraries: ('visualization')[] = ['visualization']
 
@@ -19,7 +20,7 @@ const darkMapStyle = [
 ]
 
 export default function MatchingEngine() {
-  const [incidentId, setIncidentId] = useState(mockIncidents[0]?.id ?? '')
+  const [incidentId, setIncidentId] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [urgencyFilter, setUrgencyFilter] = useState('all')
   const [zoneFilter, setZoneFilter] = useState('all')
@@ -29,6 +30,9 @@ export default function MatchingEngine() {
     (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
   )
   const { weights } = useAIWeights()
+  const { data: incidents = [], isLoading: incidentsLoading } = useActiveIncidents()
+  const { data: volunteersData } = useVolunteers(undefined, 'active', undefined, undefined, 1, 100)
+  const volunteers = volunteersData?.items ?? []
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? localStorage.getItem('googleMapsApiKey') ?? ''
   const { isLoaded } = useJsApiLoader({
     id: 'google-maps-script',
@@ -38,12 +42,16 @@ export default function MatchingEngine() {
 
   const now = Date.now()
   const highPriorityIncidents = useMemo(() => {
-    return mockIncidents
-      .filter((incident) => incident.verified)
+    return incidents
+      .filter(
+        (incident) =>
+          incident.status !== 'resolved' &&
+          (incident.verified || incident.geminiVerified || incident.status === 'active' || incident.status === 'verified')
+      )
       .map((incident) => {
         const ageHours = (now - new Date(incident.timestamp).getTime()) / (1000 * 60 * 60)
         const timeFactor = Math.min(12, Math.max(1, ageHours))
-        const priorityScore = incident.impact * incident.severity + timeFactor
+        const priorityScore = (incident.impact ?? 1) * incident.severity + timeFactor
         return { ...incident, priorityScore }
       })
       .filter((incident) => (categoryFilter === 'all' ? true : incident.category === categoryFilter))
@@ -60,7 +68,7 @@ export default function MatchingEngine() {
         zoneFilter === 'all' ? true : incident.location.toLowerCase().includes(zoneFilter.toLowerCase())
       )
       .sort((a, b) => b.priorityScore - a.priorityScore)
-  }, [categoryFilter, now, urgencyFilter, zoneFilter])
+  }, [categoryFilter, incidents, now, urgencyFilter, zoneFilter])
 
   const selectedIncident = useMemo(
     () => highPriorityIncidents.find((incident) => incident.id === incidentId) ?? highPriorityIncidents[0],
@@ -72,7 +80,7 @@ export default function MatchingEngine() {
   const rankedVolunteers = useMemo(() => {
     if (!selectedIncident) return []
 
-    return mockVolunteers
+    return volunteers
       .map((volunteer) => {
         const skillScore = volunteer.skills.some((skill) =>
           selectedIncident.category.toLowerCase().includes(skill.toLowerCase())
@@ -96,7 +104,7 @@ export default function MatchingEngine() {
         }
       })
       .sort((a, b) => b.matchScore - a.matchScore)
-  }, [selectedIncident, weights])
+  }, [selectedIncident, volunteers, weights])
 
   useEffect(() => {
     if (!selectedIncident && highPriorityIncidents[0]) {
@@ -129,6 +137,18 @@ export default function MatchingEngine() {
 
   const mapStyle = theme === 'light' ? undefined : darkMapStyle
   const displayedRecommendations = suggestedMatches.length > 0 ? suggestedMatches : rankedVolunteers.slice(0, 3)
+  const displayedRecommendationsWithCoords = useMemo(
+    () =>
+      displayedRecommendations.map((volunteer) => {
+        const volunteerId = 'volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id
+        const fromDirectory = volunteers.find((v) => v.id === volunteerId)
+        return {
+          ...volunteer,
+          currentCoordinates: fromDirectory?.currentCoordinates,
+        }
+      }),
+    [displayedRecommendations, volunteers]
+  )
 
   return (
     <div className="space-y-4 h-full">
@@ -141,7 +161,7 @@ export default function MatchingEngine() {
           className="bg-base border border-border rounded px-3 py-2 text-sm text-text-primary"
         >
           <option value="all">All categories</option>
-          {[...new Set(mockIncidents.map((incident) => incident.category))].map((category) => (
+          {[...new Set(incidents.map((incident) => incident.category))].map((category) => (
             <option key={category} value={category}>
               {category}
             </option>
@@ -195,12 +215,15 @@ export default function MatchingEngine() {
                 </div>
               </button>
             ))}
+            {!incidentsLoading && highPriorityIncidents.length === 0 && (
+              <p className="text-xs text-text-muted">No verified incidents available for matching.</p>
+            )}
           </div>
         </div>
 
         <div className="bg-surface border border-border rounded-lg p-4 flex flex-col min-h-0">
           <h2 className="font-mono text-text-primary mb-3">
-            Vertex AI Recommendations for: {selectedIncident?.title ?? 'No incident selected'}
+            ML Recommendations for: {selectedIncident?.title ?? 'No incident selected'}
           </h2>
           <div className="space-y-3 overflow-y-auto">
             {loadingRecommendations
@@ -211,11 +234,11 @@ export default function MatchingEngine() {
                     <Skeleton className="h-2 w-full" />
                   </div>
                 ))
-              : displayedRecommendations.map((volunteer) => (
+              : displayedRecommendationsWithCoords.length > 0 ? displayedRecommendationsWithCoords.map((volunteer) => (
                   <div key={'volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id} className="border border-border rounded p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-text-primary font-semibold">
-                        {volunteer.name} ({volunteer.avatarInitials})
+                        {volunteer.name} ({volunteer.avatarInitials ?? volunteer.name.slice(0, 2).toUpperCase()})
                       </p>
                       <span className="text-sm font-mono text-action">{volunteer.matchScore}%</span>
                     </div>
@@ -251,7 +274,11 @@ export default function MatchingEngine() {
                       Deploy Volunteer
                     </button>
                   </div>
-                ))}
+                )) : (
+                  <div className="border border-border rounded p-4 text-sm text-text-muted">
+                    Select an incident to see volunteers ranked by the trained ML matching pipeline.
+                  </div>
+                )}
           </div>
         </div>
 
@@ -265,12 +292,14 @@ export default function MatchingEngine() {
               options={{ disableDefaultUI: true, styles: mapStyle }}
             >
               <MarkerF position={{ lat: selectedIncident.coordinates.lat, lng: selectedIncident.coordinates.lng }} />
-              {displayedRecommendations.map((volunteer, idx) => (
+              {displayedRecommendationsWithCoords
+                .filter((volunteer) => volunteer.currentCoordinates)
+                .map((volunteer) => (
                 <MarkerF
-                  key={'volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id}
+                  key={`rec-${'volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id}`}
                   position={{
-                    lat: selectedIncident.coordinates.lat + (idx + 1) * 0.003,
-                    lng: selectedIncident.coordinates.lng - (idx + 1) * 0.003,
+                    lat: volunteer.currentCoordinates!.lat,
+                    lng: volunteer.currentCoordinates!.lng,
                   }}
                   onClick={() => setSelectedVolunteerPin('volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id)}
                 >
@@ -285,12 +314,43 @@ export default function MatchingEngine() {
                 </MarkerF>
               ))}
             </GoogleMap>
+          ) : selectedIncident ? (
+            <div className="h-full flex flex-col bg-gradient-to-br from-base to-surface p-4">
+              <div className="border border-border rounded-lg p-4 bg-surface/70">
+                <h3 className="text-sm font-semibold text-text-primary mb-2">{selectedIncident.title}</h3>
+                <p className="text-xs text-text-muted mb-3">
+                  Incident at {selectedIncident.location} ({selectedIncident.coordinates.lat.toFixed(4)},{' '}
+                  {selectedIncident.coordinates.lng.toFixed(4)})
+                </p>
+                <div className="space-y-2">
+                  {displayedRecommendationsWithCoords.slice(0, 5).map((volunteer) => (
+                    <div
+                      key={`fallback-${'volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id}`}
+                      className="rounded border border-border px-3 py-2 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-text-primary font-medium">{volunteer.name}</span>
+                        <span className="text-action">{volunteer.matchScore}%</span>
+                      </div>
+                      <div className="text-text-muted mt-1">
+                        {'currentCoordinates' in volunteer && volunteer.currentCoordinates
+                          ? `${volunteer.currentCoordinates.lat.toFixed(4)}, ${volunteer.currentCoordinates.lng.toFixed(4)}`
+                          : 'Coordinates unavailable'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-text-muted mt-4 text-center">
+                Add `VITE_GOOGLE_MAPS_API_KEY` or set `googleMapsApiKey` in localStorage to enable route map visualization.
+              </p>
+            </div>
           ) : (
             <div className="h-full flex items-center justify-center bg-gradient-to-br from-base to-surface">
               <div className="text-center px-4">
                 <div className="w-14 h-14 mx-auto mb-3 bg-skeleton rounded-lg animate-pulse" />
                 <p className="text-sm text-text-muted">
-                  Map unavailable. Add `VITE_GOOGLE_MAPS_API_KEY` or set `googleMapsApiKey` in localStorage.
+                  Select an incident from the queue to run ML-based volunteer matching.
                 </p>
               </div>
             </div>
