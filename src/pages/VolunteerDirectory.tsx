@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useVolunteers } from '@/hooks/useVolunteers'
 import VolunteerTable from '@/components/shared/VolunteerTable'
 import VolunteerProfileSheet from '@/components/shared/VolunteerProfileSheet'
@@ -15,23 +15,17 @@ export default function VolunteerDirectory() {
   const [page, setPage] = useState(1)
   const pageSize = 10
 
-  const { data, isLoading } = useVolunteers(
+  const { data, isLoading, error } = useVolunteers(
     search || undefined,
-    {
-      ...(statusFilter ? { status: statusFilter } : {}),
-      ...(skillFilter ? { skill: skillFilter } : {}),
-      ...(minReliability > 0 ? { minReliability } : {}),
-    },
+    statusFilter || undefined,
+    skillFilter || undefined,
+    minReliability > 0 ? minReliability : undefined,
     page,
     pageSize
   )
   const volunteers = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
-
-  useEffect(() => {
-    setPage(1)
-  }, [minReliability, search, skillFilter, statusFilter])
 
   const handleViewProfile = (volunteer: Volunteer) => {
     setSelectedVolunteer(volunteer)
@@ -98,9 +92,9 @@ export default function VolunteerDirectory() {
       </div>
       <div className="flex items-center justify-end gap-2">
         <button
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-          className="px-3 py-1 rounded border border-border text-sm text-text-primary"
-          disabled={page === 1}
+          onClick={() => setPage(p => Math.max(1, p - 1))}
+          className="px-3 py-1 rounded border border-border text-sm text-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={page === 1 || isLoading || totalPages <= 1}
         >
           Previous
         </button>
@@ -108,13 +102,19 @@ export default function VolunteerDirectory() {
           Page {page} of {totalPages}
         </span>
         <button
-          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          className="px-3 py-1 rounded border border-border text-sm text-text-primary"
-          disabled={page >= totalPages}
+          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+          className="px-3 py-1 rounded border border-border text-sm text-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={page >= totalPages || isLoading || totalPages <= 1}
         >
           Next
         </button>
       </div>
+
+      {error && (
+        <div className="text-red-500 text-sm text-center">
+          Error loading volunteers: {error.message}
+        </div>
+      )}
 
       <VolunteerProfileSheet
         volunteer={selectedVolunteer}
