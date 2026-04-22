@@ -40,6 +40,13 @@ const INDIAN_CITIES = [
 const CATEGORIES = ['Flood', 'Earthquake', 'Cyclone', 'Fire', 'Medical Emergency']
 const SKILLS = ['First Aid', 'Search and Rescue', 'Water Rescue', 'Medical', 'Logistics', 'Driving']
 
+const VERIFICATION_PHOTOS = [
+  'https://images.unsplash.com/photo-1526666923127-b2970f64b422?auto=format&fit=crop&q=80&w=1200',
+  'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&q=80&w=1200',
+  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&q=80&w=1200',
+  'https://images.unsplash.com/photo-1501426026826-31c667bdf23d?auto=format&fit=crop&q=80&w=1200',
+]
+
 async function seed() {
   console.log('Seeding Firestore with Indian data...')
 
@@ -63,21 +70,25 @@ async function seed() {
     const lat = city.lat + (Math.random() - 0.5) * 0.1
     const lng = city.lng + (Math.random() - 0.5) * 0.1
 
+    const isVerified = i <= 6
+    const isResolved = i === 10
+
     await db.collection('incidents').add({
       title: `${category} in ${city.name} - Case ${i}`,
       description: `Emergency ${category.toLowerCase()} reported near ${city.name}. Immediate assistance required.`,
       category,
       severity: Math.floor(Math.random() * 5) + 1,
-      status: 'pending',
+      status: isResolved ? 'resolved' : isVerified ? 'active' : 'pending',
       coordinates: { lat, lng },
       location: city.name,
       photoUrl: 'https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&q=80&w=1000',
       urgencyScore: Math.floor(Math.random() * 100),
       timestamp: admin.firestore.Timestamp.now(),
-      verified: false,
-      geminiVerified: false,
+      verified: isVerified,
+      geminiVerified: isVerified,
       reporterName: `Field Agent ${String.fromCharCode(64 + i)}`,
       affectedCount: Math.floor(Math.random() * 500) + 1,
+      impact: Math.floor(Math.random() * 5) + 1,
     })
   }
   console.log('10 Incidents seeded.')
@@ -108,6 +119,36 @@ async function seed() {
     })
   }
   console.log('30 Volunteers seeded.')
+
+  // 4. Create Verification Queue (pending reports for admin review)
+  for (let i = 1; i <= 6; i++) {
+    const city = INDIAN_CITIES[Math.floor(Math.random() * INDIAN_CITIES.length)]
+    const incidentType = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)]
+    const baseLat = city.lat + (Math.random() - 0.5) * 0.08
+    const baseLng = city.lng + (Math.random() - 0.5) * 0.08
+
+    const reportedLocation = { lat: baseLat, lng: baseLng }
+    const submissionLocation = {
+      lat: baseLat + (Math.random() - 0.5) * 0.01,
+      lng: baseLng + (Math.random() - 0.5) * 0.01,
+    }
+
+    await db.collection('verifications').add({
+      reporterName: `Citizen Reporter ${i}`,
+      incidentType,
+      timestamp: admin.firestore.Timestamp.now(),
+      location: city.name,
+      photoUrl: VERIFICATION_PHOTOS[i % VERIFICATION_PHOTOS.length],
+      reportText: `Reported ${incidentType.toLowerCase()} near ${city.name}. Please verify and dispatch help.`,
+      aiAnalysis:
+        'Preliminary visual analysis indicates plausible emergency context. Recommend cross-checking location delta and community confirmations.',
+      reportedLocation,
+      submissionLocation,
+      communityConfirmations: Math.floor(Math.random() * 15),
+      status: 'pending',
+    })
+  }
+  console.log('6 Verification items seeded.')
 
   console.log('Seeding complete!')
   process.exit(0)
