@@ -1,6 +1,17 @@
 import { createContext, useContext, useState, ReactNode } from 'react'
 import { AIWeights, UrgencyMultipliers } from '@/types'
-import { DEFAULT_AI_WEIGHTS, DEFAULT_URGENCY_MULTIPLIERS } from '@/lib/mockData'
+
+const DEFAULT_AI_WEIGHTS: AIWeights = {
+  skillMatch: 0.4,
+  proximity: 0.3,
+  availability: 0.2,
+  reliability: 0.1,
+}
+
+const DEFAULT_URGENCY_MULTIPLIERS: UrgencyMultipliers = {
+  impact: 0.6,
+  severity: 0.4,
+}
 
 interface AIWeightsContextType {
   weights: AIWeights
