@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useVolunteers } from '@/hooks/useVolunteers'
 import VolunteerTable from '@/components/shared/VolunteerTable'
 import VolunteerProfileSheet from '@/components/shared/VolunteerProfileSheet'
@@ -13,7 +13,23 @@ export default function VolunteerDirectory() {
   const [skillFilter, setSkillFilter] = useState<string>('')
   const [minReliability, setMinReliability] = useState<number>(0)
   const [page, setPage] = useState(1)
+  const [origin, setOrigin] = useState<{ lat: number; lng: number } | undefined>(undefined)
   const pageSize = 10
+
+  useEffect(() => {
+    navigator.geolocation?.getCurrentPosition?.(
+      (pos) => {
+        setOrigin({
+          lat: Number(pos.coords.latitude.toFixed(6)),
+          lng: Number(pos.coords.longitude.toFixed(6)),
+        })
+      },
+      () => {
+        // Keep undefined; backend will omit distances
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
+    )
+  }, [])
 
   const { data, isLoading, error } = useVolunteers(
     search || undefined,
@@ -21,11 +37,23 @@ export default function VolunteerDirectory() {
     skillFilter || undefined,
     minReliability > 0 ? minReliability : undefined,
     page,
-    pageSize
+    pageSize,
+    origin
   )
   const volunteers = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const currentPage = useMemo(() => Math.min(page, totalPages), [page, totalPages])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter, skillFilter, minReliability])
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages)
+    }
+  }, [page, totalPages])
 
   const handleViewProfile = (volunteer: Volunteer) => {
     setSelectedVolunteer(volunteer)
@@ -92,19 +120,19 @@ export default function VolunteerDirectory() {
       </div>
       <div className="flex items-center justify-end gap-2">
         <button
-          onClick={() => setPage(p => Math.max(1, p - 1))}
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
           className="px-3 py-1 rounded border border-border text-sm text-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={page === 1 || isLoading || totalPages <= 1}
+          disabled={currentPage === 1 || totalPages <= 1}
         >
           Previous
         </button>
         <span className="text-sm text-text-muted">
-          Page {page} of {totalPages}
+          Page {currentPage} of {totalPages}
         </span>
         <button
-          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           className="px-3 py-1 rounded border border-border text-sm text-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={page >= totalPages || isLoading || totalPages <= 1}
+          disabled={currentPage >= totalPages || totalPages <= 1}
         >
           Next
         </button>
