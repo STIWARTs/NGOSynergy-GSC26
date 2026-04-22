@@ -111,7 +111,7 @@ async function seed() {
       email: `volunteer${i}@example.com`,
       skills: volunteerSkills,
       status: 'active',
-      currentCoordinates: { lat, lng },
+      homeCoordinates: { lat, lng },
       reliabilityScore: Math.random() * 0.5 + 0.5, // 0.5 to 1.0
       fcmToken: 'mock-fcm-token',
       certifications: Math.random() > 0.7 ? ['Pro Certified'] : [],
