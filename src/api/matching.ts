@@ -13,7 +13,13 @@ interface DeployPayload {
 
 export const matchingService = {
   async getResults(payload: MatchRequestPayload): Promise<MatchResult[]> {
-    return fetchApi<MatchResult[]>('POST', '/api/match/calculate', payload)
+    const response = await fetchApi<{
+      incidentId: string
+      matches: MatchResult[]
+      totalProcessed: number
+      timestamp: string
+    }>('POST', '/api/match/calculate', { incidentId: payload.incidentId })
+    return response.matches
   },
 
   async deployVolunteer(payload: DeployPayload): Promise<void> {
