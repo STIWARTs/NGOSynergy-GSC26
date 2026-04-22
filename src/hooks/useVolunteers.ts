@@ -8,11 +8,13 @@ export function useVolunteers(
   skill?: string,
   minReliability?: number,
   page = 1,
-  pageSize = 10
+  pageSize = 10,
+  origin?: { lat: number; lng: number }
 ) {
   return useQuery({
-    queryKey: [...queryKeys.volunteers.all, search, status, skill, minReliability, page, pageSize],
-    queryFn: () => volunteerService.getAll(search, { status, skill, minReliability }, page, pageSize),
+    queryKey: [...queryKeys.volunteers.all, search, status, skill, minReliability, page, pageSize, origin?.lat, origin?.lng],
+    queryFn: () => volunteerService.getAll(search, { status, skill, minReliability, lat: origin?.lat, lng: origin?.lng }, page, pageSize),
+    placeholderData: (previousData) => previousData,
     staleTime: 60000,
     retry: false,
     refetchOnWindowFocus: false,
