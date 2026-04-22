@@ -3,7 +3,7 @@ import { useVolunteers } from '@/hooks/useVolunteers'
 import StatCard from '@/components/shared/StatCard'
 import { GoogleMap, HeatmapLayerF, MarkerF, useJsApiLoader, InfoWindowF } from '@react-google-maps/api'
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { MapPin } from 'lucide-react'
+import { ChevronDown, ChevronUp, MapPin } from 'lucide-react'
 
 const mapLibraries: ('visualization')[] = ['visualization']
 
@@ -68,6 +68,7 @@ export default function Dashboard() {
   )
   const [selectedIncident, setSelectedIncident] = useState<any>(null)
   const [infoWindowPosition, setInfoWindowPosition] = useState<google.maps.LatLngLiteral | null>(null)
+  const [legendOpen, setLegendOpen] = useState(false)
   const { data: incidents } = useActiveIncidents()
   const { data: stats, isLoading: statsLoading } = useIncidentStats()
   const { data: volunteersData } = useVolunteers(undefined, undefined, undefined, undefined, 1, 8)
@@ -185,59 +186,99 @@ export default function Dashboard() {
       {/* 3 Panels in Single Row: Map | Volunteers | Live Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Panel 1: Map - Perfect Square */}
-        <div className="lg:col-span-5 bg-surface border border-border rounded-lg overflow-hidden relative" style={{ height: '600px', width: '600px' }}>
+        <div className="lg:col-span-6 bg-surface border border-border rounded-lg overflow-hidden relative" style={{ height: '680px' }}>
           {/* Map Legend Overlay */}
-          <div className="absolute top-4 left-4 z-10 bg-surface/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
-            <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              Incident Legend
-            </h3>
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-red-500"></div>
-                <span className="text-text-muted">Active/Pending (High Urgency)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-amber-500"></div>
-                <span className="text-text-muted">Pending Verification</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-purple-500"></div>
-                <span className="text-text-muted">AI Verified (Gemini)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-green-500"></div>
-                <span className="text-text-muted">Resolved</span>
-              </div>
-              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-                <div className="w-4 h-4 text-blue-500">
-                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+          <div className="absolute bottom-3 left-3 z-10 bg-surface/90 backdrop-blur-sm border border-border rounded-lg shadow-lg max-w-[190px]">
+            <button
+              type="button"
+              onClick={() => setLegendOpen((v) => !v)}
+              className="w-full px-2 py-1.5 flex items-center justify-between gap-2"
+              title={legendOpen ? 'Collapse legend' : 'Expand legend'}
+            >
+              <span className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                Legend
+              </span>
+              {legendOpen ? (
+                <ChevronUp className="w-4 h-4 text-text-muted" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-text-muted" />
+              )}
+            </button>
+
+            {!legendOpen ? (
+              <div className="px-2 pb-2">
+                <div className="flex flex-wrap gap-1 text-[10px]">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-base border border-border">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                    Active
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-base border border-border">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                    Pending
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-base border border-border">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                    AI
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-base border border-border">
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                    Resolved
+                  </span>
                 </div>
-                <span className="text-text-muted">Active Volunteer</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-1 bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 rounded"></div>
-                <span className="text-text-muted">Heatmap Intensity</span>
+            ) : (
+              <div className="px-2 pb-2 max-h-[220px] overflow-auto">
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-red-500"></div>
+                    <span className="text-text-muted">Active/Pending (High Urgency)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-amber-500"></div>
+                    <span className="text-text-muted">Pending Verification</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-purple-500"></div>
+                    <span className="text-text-muted">AI Verified (Gemini)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-green-500"></div>
+                    <span className="text-text-muted">Resolved</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                    <div className="w-4 h-4 text-blue-500">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                      </svg>
+                    </div>
+                    <span className="text-text-muted">Active Volunteer</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-1 bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 rounded"></div>
+                    <span className="text-text-muted">Heatmap Intensity</span>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-border space-y-1 text-xs">
+                  <div className="flex items-center justify-between text-text-muted">
+                    <span>Total Incidents:</span>
+                    <span className="font-semibold text-text-primary">{incidentStats.total}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-text-muted">
+                    <span>Critical (70+):</span>
+                    <span className="font-semibold text-red-500">{incidentStats.critical}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-text-muted">
+                    <span>Active:</span>
+                    <span className="font-semibold text-amber-500">{incidentStats.active}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-text-muted">
+                    <span>Resolved:</span>
+                    <span className="font-semibold text-green-500">{incidentStats.resolved}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-border space-y-1 text-xs">
-              <div className="flex items-center justify-between text-text-muted">
-                <span>Total Incidents:</span>
-                <span className="font-semibold text-text-primary">{incidentStats.total}</span>
-              </div>
-              <div className="flex items-center justify-between text-text-muted">
-                <span>Critical (70+):</span>
-                <span className="font-semibold text-red-500">{incidentStats.critical}</span>
-              </div>
-              <div className="flex items-center justify-between text-text-muted">
-                <span>Active:</span>
-                <span className="font-semibold text-amber-500">{incidentStats.active}</span>
-              </div>
-              <div className="flex items-center justify-between text-text-muted">
-                <span>Resolved:</span>
-                <span className="font-semibold text-green-500">{incidentStats.resolved}</span>
-              </div>
-            </div>
+            )}
           </div>
 
           {isLoaded && incidents ? (
@@ -345,7 +386,7 @@ export default function Dashboard() {
         </div>
 
         {/* Panel 2: Active Volunteers */}
-        <div className="lg:col-span-4 bg-surface border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: '600px' }}>
+        <div className="lg:col-span-3 bg-surface border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: '680px' }}>
           <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-blue-500/10 to-cyan-500/10">
             <h2 className="text-sm font-semibold text-text-primary">Active Volunteers</h2>
             <p className="text-xs text-text-muted mt-1">
@@ -390,7 +431,7 @@ export default function Dashboard() {
         </div>
 
         {/* Panel 3: Live Incident Feed */}
-        <div className="lg:col-span-3 bg-surface border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: '600px' }}>
+        <div className="lg:col-span-3 bg-surface border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: '680px' }}>
             <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-red-500/10 to-orange-500/10">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
