@@ -28,6 +28,7 @@ export default function VolunteerTable({
 }: VolunteerTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }), [])
 
   const columns = useMemo(
     () => [
@@ -52,6 +53,7 @@ export default function VolunteerTable({
         ),
         accessorKey: 'name',
         enableSorting: true,
+        sortingFn: (rowA: any, rowB: any) => collator.compare(rowA.original.name || '', rowB.original.name || ''),
       },
       {
         id: 'skills',
@@ -81,10 +83,17 @@ export default function VolunteerTable({
           </button>
         ),
         cell: ({ row }: any) => (
-          <span className="text-text-primary">{row.original.distance} km</span>
+          <span className="text-text-primary">
+            {typeof row.original.distance === 'number' ? `${row.original.distance} km` : 'N/A'}
+          </span>
         ),
         accessorKey: 'distance',
         enableSorting: true,
+        sortingFn: (rowA: any, rowB: any) => {
+          const a = typeof rowA.original.distance === 'number' ? rowA.original.distance : Number.POSITIVE_INFINITY
+          const b = typeof rowB.original.distance === 'number' ? rowB.original.distance : Number.POSITIVE_INFINITY
+          return a - b
+        },
       },
       {
         id: 'reliability',
