@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAIWeights } from '@/context/AIWeightsContext'
-import { GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-maps/api'
+import { CircleF, GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-maps/api'
 import { Skeleton } from '@/components/shared/Skeleton'
 import { emitGlobalToast } from '@/lib/events'
 import { useDeployMatch, useMatchResults } from '@/hooks/useMatching'
@@ -19,11 +19,34 @@ const darkMapStyle = [
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#020617' }] },
 ]
 
+const volunteerHomeIcon = {
+  path: 'M12 2a4 4 0 1 1 0 8a4 4 0 0 1 0-8zm0 10c-4.42 0-8 2.69-8 6v2h16v-2c0-3.31-3.58-6-8-6z',
+  scale: 1.1,
+  fillColor: '#3B82F6',
+  fillOpacity: 1,
+  strokeColor: '#F8FAFC',
+  strokeWeight: 1.5,
+  anchor: new google.maps.Point(12, 22),
+}
+
+const incidentAlertIcon = {
+  path: 'M12 2L2 20h20L12 2zm0 5.5c.55 0 1 .45 1 1V13a1 1 0 1 1-2 0V8.5c0-.55.45-1 1-1zm0 9.5a1.25 1.25 0 1 1 0-2.5a1.25 1.25 0 0 1 0 2.5z',
+  scale: 1.3,
+  fillColor: '#EF4444',
+  fillOpacity: 0.95,
+  strokeColor: '#F8FAFC',
+  strokeWeight: 1.5,
+  anchor: new google.maps.Point(12, 20),
+}
+
 export default function MatchingEngine() {
   const [incidentId, setIncidentId] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [urgencyFilter, setUrgencyFilter] = useState('all')
   const [zoneFilter, setZoneFilter] = useState('all')
+  const [radiusKm, setRadiusKm] = useState(30)
+  const [topN, setTopN] = useState(10)
+  const [showNearestOnly, setShowNearestOnly] = useState(true)
   const [loadingRecommendations, setLoadingRecommendations] = useState(false)
   const [selectedVolunteerPin, setSelectedVolunteerPin] = useState<string | null>(null)
   const [theme, setTheme] = useState<'dark' | 'light'>(
@@ -74,7 +97,7 @@ export default function MatchingEngine() {
     () => highPriorityIncidents.find((incident) => incident.id === incidentId) ?? highPriorityIncidents[0],
     [highPriorityIncidents, incidentId]
   )
-  const { data: suggestedMatches = [] } = useMatchResults(selectedIncident?.id ?? '', weights)
+  const { data: suggestedMatches = [] } = useMatchResults(selectedIncident?.id ?? '', weights, { radiusKm, limit: topN })
   const deployMutation = useDeployMatch()
 
   const rankedVolunteers = useMemo(() => {
@@ -144,11 +167,28 @@ export default function MatchingEngine() {
         const fromDirectory = volunteers.find((v) => v.id === volunteerId)
         return {
           ...volunteer,
-          currentCoordinates: fromDirectory?.currentCoordinates,
+          homeCoordinates: fromDirectory?.homeCoordinates ?? fromDirectory?.currentCoordinates,
         }
       }),
     [displayedRecommendations, volunteers]
   )
+
+  const allVolunteerPins = useMemo(() => {
+    return volunteers
+      .map((v) => ({
+        ...v,
+        pinCoordinates: v.homeCoordinates ?? v.currentCoordinates,
+      }))
+      .filter((v) => !!v.pinCoordinates)
+  }, [volunteers])
+
+  const recommendedIds = useMemo(() => {
+    return new Set(displayedRecommendationsWithCoords.map((v) => ('volunteerId' in v ? v.volunteerId : v.id)))
+  }, [displayedRecommendationsWithCoords])
+
+  const volunteerPinsToShow = showNearestOnly
+    ? allVolunteerPins.filter((v) => recommendedIds.has(v.id))
+    : allVolunteerPins
 
   return (
     <div className="space-y-4 h-full">
@@ -188,8 +228,39 @@ export default function MatchingEngine() {
           <option value="north">North</option>
           <option value="zone">Coordination Zones</option>
         </select>
-        <div className="text-xs text-text-muted flex items-center px-2">
-          Score = (a x SkillMatch) + (b x 1/Distance) + (c x Availability) + (d x PastReliability)
+        <div className="text-xs text-text-muted flex items-center px-2 justify-end gap-3">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={showNearestOnly}
+              onChange={(e) => setShowNearestOnly(e.target.checked)}
+            />
+            Show nearest only
+          </label>
+          <div className="flex items-center gap-2">
+            <span>Radius</span>
+            <input
+              type="range"
+              min={5}
+              max={80}
+              step={5}
+              value={radiusKm}
+              onChange={(e) => setRadiusKm(Number(e.target.value))}
+            />
+            <span className="w-10 text-right">{radiusKm}km</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span>Top</span>
+            <select
+              value={topN}
+              onChange={(e) => setTopN(Number(e.target.value))}
+              className="bg-base border border-border rounded px-2 py-1 text-xs text-text-primary"
+            >
+              <option value={3}>3</option>
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -291,23 +362,39 @@ export default function MatchingEngine() {
               zoom={13}
               options={{ disableDefaultUI: true, styles: mapStyle }}
             >
-              <MarkerF position={{ lat: selectedIncident.coordinates.lat, lng: selectedIncident.coordinates.lng }} />
-              {displayedRecommendationsWithCoords
-                .filter((volunteer) => volunteer.currentCoordinates)
-                .map((volunteer) => (
+              <CircleF
+                center={{ lat: selectedIncident.coordinates.lat, lng: selectedIncident.coordinates.lng }}
+                radius={radiusKm * 1000}
+                options={{
+                  fillColor: '#3B82F6',
+                  fillOpacity: 0.12,
+                  strokeColor: '#60A5FA',
+                  strokeOpacity: 0.9,
+                  strokeWeight: 2,
+                }}
+              />
+              <MarkerF
+                position={{ lat: selectedIncident.coordinates.lat, lng: selectedIncident.coordinates.lng }}
+                icon={incidentAlertIcon}
+                title={`${selectedIncident.title} (Incident)`}
+              />
+              {volunteerPinsToShow.map((volunteer) => (
                 <MarkerF
-                  key={`rec-${'volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id}`}
+                  key={`vol-${volunteer.id}`}
                   position={{
-                    lat: volunteer.currentCoordinates!.lat,
-                    lng: volunteer.currentCoordinates!.lng,
+                    lat: (volunteer.pinCoordinates as any).lat,
+                    lng: (volunteer.pinCoordinates as any).lng,
                   }}
-                  onClick={() => setSelectedVolunteerPin('volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id)}
+                  icon={volunteerHomeIcon}
+                  title={`${volunteer.name} (Home/Base)`}
+                  onClick={() => setSelectedVolunteerPin(volunteer.id)}
                 >
-                  {selectedVolunteerPin === ('volunteerId' in volunteer ? volunteer.volunteerId : volunteer.id) && (
+                  {selectedVolunteerPin === volunteer.id && (
                     <InfoWindowF onCloseClick={() => setSelectedVolunteerPin(null)}>
                       <div className="text-xs">
                         <p>{volunteer.name}</p>
-                        <p>Match Score: {volunteer.matchScore}%</p>
+                        <p className="text-[11px] text-gray-600">Home/Base Location</p>
+                        <p>{recommendedIds.has(volunteer.id) ? 'Recommended' : 'Volunteer'}</p>
                       </div>
                     </InfoWindowF>
                   )}
