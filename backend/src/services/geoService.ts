@@ -62,7 +62,7 @@ export const geoService = {
       ...v,
       distance: geoService.calculateHaversineDistance(
         incident.coordinates,
-        v.currentCoordinates || { lat: 0, lng: 0 }
+        v.homeCoordinates || v.currentCoordinates || { lat: 0, lng: 0 }
       ),
     }))
 

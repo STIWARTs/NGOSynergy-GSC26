@@ -32,7 +32,13 @@ export interface Volunteer {
   email: string
   skills: string[]
   status: 'active' | 'inactive' | 'deployed'
-  currentCoordinates: {
+  // Volunteer-provided home/base location (not live tracking)
+  homeCoordinates: {
+    lat: number
+    lng: number
+  }
+  // Optional live location if you add it later
+  currentCoordinates?: {
     lat: number
     lng: number
   }
