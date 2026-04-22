@@ -59,9 +59,11 @@ router.get('/', authMiddleware, adminOnly, async (req: Request, res: Response) =
 
     volunteers = volunteers.map((v) => ({
       ...v,
-      distance: v.currentCoordinates
-        ? geoService.calculateHaversineDistance(origin, v.currentCoordinates)
-        : undefined,
+      distance: v.homeCoordinates
+        ? geoService.calculateHaversineDistance(origin, v.homeCoordinates)
+        : v.currentCoordinates
+          ? geoService.calculateHaversineDistance(origin, v.currentCoordinates)
+          : undefined,
     }))
 
     // Natural sort: "Volunteer 2" before "Volunteer 10"
