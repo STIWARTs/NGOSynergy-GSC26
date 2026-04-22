@@ -28,7 +28,7 @@ router.get('/', authMiddleware, adminOnly, async (req: Request, res: Response) =
     const paginated = volunteers.slice(startIndex, startIndex + pageSize)
 
     res.json({
-      volunteers: paginated,
+      items: paginated,
       total,
       page,
       pageSize,
