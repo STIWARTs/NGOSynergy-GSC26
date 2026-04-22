@@ -6,7 +6,8 @@ import { MatchResult } from '../types/index.js'
 export const matchingService = {
   async calculateMatches(
     incidentId: string,
-    limit: number = 10
+    limit: number = 10,
+    radiusKm: number = 30
   ): Promise<MatchResult[]> {
     try {
       // Fetch incident
@@ -25,7 +26,7 @@ export const matchingService = {
       const proximateVolunteers = await geoService.filterByProximity(
         incident,
         volunteers,
-        30 // 30 km radius
+        radiusKm
       )
 
       if (proximateVolunteers.length === 0) {
