@@ -5,6 +5,8 @@ interface VolunteerQueryFilters {
   status?: string
   minReliability?: number
   skill?: string
+  lat?: number
+  lng?: number
 }
 
 interface VolunteerListResponse {
@@ -26,6 +28,8 @@ export const volunteerService = {
     if (filters?.status) params.append('status', filters.status)
     if (filters?.minReliability) params.append('minReliability', String(filters.minReliability))
     if (filters?.skill) params.append('skill', filters.skill)
+    if (typeof filters?.lat === 'number') params.append('lat', String(filters.lat))
+    if (typeof filters?.lng === 'number') params.append('lng', String(filters.lng))
     params.append('page', String(page))
     params.append('pageSize', String(pageSize))
 
