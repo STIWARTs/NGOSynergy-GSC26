@@ -1,9 +1,19 @@
 // src/config.js
 import dotenv from "dotenv";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import path from "path";
+import { fileURLToPath } from "url";
 
-// Load environment variables
-dotenv.config();
+// Get current file directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Clear any existing env vars and load from THIS directory's .env file
+delete process.env.GEMINI_API_KEY;
+delete process.env.GOOGLE_CLOUD_PROJECT_ID;
+delete process.env.DOCUMENT_AI_PROCESSOR_ID;
+
+dotenv.config({ path: path.join(__dirname, '.env'), override: true });
 
 // Validate required environment variables
 const requiredEnvVars = [

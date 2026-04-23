@@ -1,10 +1,47 @@
 // src/db.js
 import { Firestore } from "@google-cloud/firestore";
 
-// Initialize Firestore
-const db = new Firestore({
-  projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-});
+// Initialize Firestore with explicit credentials from .env
+let db;
+
+try {
+  if (process.env.FIREBASE_PRIVATE_KEY) {
+    // Use Firebase Admin SDK credentials
+    db = new Firestore({
+      projectId: process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT_ID,
+      credentials: {
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      },
+    });
+    console.log("✅ Firestore initialized with Firebase credentials");
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    // Use service account key file
+    db = new Firestore({
+      projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    });
+    console.log("✅ Firestore initialized with service account key file");
+  } else {
+    // Try default credentials (for local development with gcloud auth)
+    db = new Firestore({
+      projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+    });
+    console.log("⚠️  Firestore initialized with default credentials");
+  }
+} catch (error) {
+  console.error("❌ Failed to initialize Firestore:", error.message);
+  // Create a mock DB for testing
+  db = {
+    collection: () => ({
+      add: async (data) => {
+        console.log("\n📝 Mock Firestore - Would save:", JSON.stringify(data, null, 2));
+        return { id: "mock-test-id-12345" };
+      },
+    }),
+  };
+  console.log("⚠️  Using mock Firestore (data will not be saved)");
+}
 
 /**
  * Save crisis report to Firestore
