@@ -1,0 +1,27 @@
+{
+  "name": "ngo-data-digitization-pipeline",
+  "version": "1.0.0",
+  "description": "Data Digitization Pipeline for NGO Crisis Management - Google Solution Challenge 2026",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "test": "node test.js",
+    "start": "node main.js"
+  },
+  "keywords": [
+    "ngo",
+    "crisis-management",
+    "document-ai",
+    "gemini",
+    "firestore"
+  ],
+  "author": "Stiwart",
+  "license": "MIT",
+  "dependencies": {
+    "@google-cloud/documentai": "^8.0.0",
+    "@google-cloud/firestore": "^7.0.0",
+    "@google/generative-ai": "^0.21.0",
+    "zod": "^3.22.0",
+    "dotenv": "^16.4.0"
+  }
+}
