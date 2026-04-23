@@ -11,7 +11,7 @@ export async function extractStructuredData(rawText) {
     console.log("Calling Gemini AI for data extraction...");
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: crisisSchema, // 2026 Pro Move: Schema-enforced response
