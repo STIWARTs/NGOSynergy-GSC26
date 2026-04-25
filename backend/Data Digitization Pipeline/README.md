@@ -9,7 +9,7 @@ A complete data digitization pipeline for NGO crisis management that converts ra
 - **Gemini AI**: Extract structured crisis data with schema enforcement
 - **Validation**: Zod-based validation for data integrity
 - **Firestore Integration**: Store and query crisis reports
-- **Priority Scoring**: Automatic urgency calculation based on category and severity
+- **Priority Scoring**: Hybrid Pro Formula with 4-factor weighted calculation (Category, Severity, Scale, Wait Time)
 
 ## 📁 Project Structure
 
@@ -19,10 +19,11 @@ Data Digitization Pipeline/
 ├── digitize.js        # Document AI OCR extraction
 ├── preprocess.js      # Text cleaning and enhancement
 ├── gemini.js          # Gemini AI structured data extraction
-├── validate.js        # Zod validation and data transformation
+├── validate.js        # Zod validation and PRO priority transformation
 ├── db.js              # Firestore database operations
 ├── main.js            # Main pipeline orchestrator
 ├── test.js            # Test script
+├── test-pro-formula.js # Pro Priority Formula demonstration
 ├── .env               # Environment variables
 └── package.json       # Dependencies
 ```
@@ -106,9 +107,11 @@ console.log(result.data);
   - Schema validation
   - Error handling
         ↓
-[ Priority Calculation ]
-  - Category weights
-  - Severity scoring
+[ Priority Calculation (PRO FORMULA) ]
+  - Category weight (40%)
+  - AI severity score (30%)
+  - Scale factor (20%): log10(people_affected)
+  - Wait time factor (10%): time-based escalation
         ↓
 [ Firestore Database ]
   - Store report
@@ -166,22 +169,45 @@ Process raw text through the pipeline (bypasses OCR).
 
 ## 🎯 Priority Score Calculation
 
-The pipeline calculates a priority score to help administrators identify the most urgent crises:
+### Hybrid Pro Formula - Solution Challenge 2026
+
+Our system uses a **Human-Centric Logic Engine** that intelligently prioritizes crises based on multiple factors:
 
 ```javascript
-priorityScore = (categoryWeight * 0.5) + (severity * 0.5)
+PriorityScore = (Category × 0.4) + (Severity × 0.3) + (ScaleFactor × 0.2) + (WaitTime × 0.1)
 ```
 
-**Category Weights:**
-- Health: 10
-- Rescue: 8
-- Water: 6
-- Food: 5
-- Shelter: 4
+### Component Breakdown
 
-**Example:**
-- Category: Health (10), Severity: 9
-- Priority Score: (10 * 0.5) + (9 * 0.5) = 9.5
+| Component | Weight | Description |
+|-----------|--------|-------------|
+| **Category** | 40% | Crisis type importance (Health=10, Rescue=8, Water=6, Food=5, Shelter=4) |
+| **Severity** | 30% | AI-extracted intensity from reports (1-10 scale by Gemini) |
+| **Scale Factor** | 20% | Impact scope: `min(log10(people_affected + 1) × 2.5, 10)` |
+| **Wait Time** | 10% | Time escalation: 1 point per 4 hours (capped at 10) |
+
+### Why This Formula?
+
+✅ **Impact over Intensity**: Helps 50 people before 2 people  
+✅ **No-One Forgotten**: Old low-priority crises climb over time  
+✅ **Complete Transparency**: Every factor is explainable to judges  
+✅ **Mathematical Fairness**: Logarithmic scaling prevents domination  
+
+### Example Calculation
+
+```
+Crisis: Water shortage, Severity 9, 120 people, New report
+
+Category Score:  6 × 0.4 = 2.40
+Severity Score:  9 × 0.3 = 2.70
+Scale Score:     log10(121) × 2.5 × 0.2 = 1.04
+Wait Time Score: 0.00 (new report)
+─────────────────────────────────────
+TOTAL: 6.14
+```
+
+📖 **Complete Documentation**: See [PRO_PRIORITY_FORMULA.md](./PRO_PRIORITY_FORMULA.md)  
+🧪 **Test the Formula**: Run `node test-pro-formula.js`
 
 ## 🧪 Testing
 
@@ -288,9 +314,11 @@ Visit [Google Cloud Console](https://console.cloud.google.com)
    - Maps varied terminology to standard categories
    - Ensures consistent data across reports
 
-4. **Priority Scoring**
-   - Combines category importance with severity
-   - Enables smart sorting in admin dashboard
+4. **Hybrid Pro Priority Scoring**
+   - 4-factor weighted formula for intelligent resource allocation
+   - Time-based escalation ensures no crisis is forgotten
+   - Logarithmic scaling for fair comparison across different scales
+   - Transparent and explainable to judges
 
 5. **Comprehensive Validation**
    - Zod schemas for runtime validation
