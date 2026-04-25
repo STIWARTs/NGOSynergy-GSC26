@@ -1,49 +1,49 @@
-# 🔄 Data Digitization Pipeline — Complete Implementation Guide
+# Data Digitization Pipeline — Complete Implementation Guide
 
 > **Project:** NGO Synergy Admin Dashboard  
-> **Feature:** Data Digitization Pipeline → Prioritized Issues Dashboard  
+> **Feature:** Data Digitization Pipeline -> Prioritized Issues Dashboard  
 
 ---
 
-## 📐 Architecture Overview
+## Architecture Overview
 
 ```
 [ User Input: Image / PDF / Text ]
-            ↓
-[ Document AI (OCR) ] ← Google Cloud Document AI
+            |
+[ Document AI (OCR) ] <- Google Cloud Document AI
    Extracts raw text from PDFs, JPEGs, PNGs, TIFFs
-            ↓
+            |
 [ Preprocessing ]
    Cleans text, normalizes categories,
    fixes OCR errors, removes noise
-            ↓
-[ Gemini AI (JSON Extraction) ] ← Schema-Enforced via responseSchema
+            |
+[ Gemini AI (JSON Extraction) ] <- Schema-Enforced via responseSchema
    Outputs: category, severity, urgency,
    people_affected, location_name, summary
-            ↓
+            |
 [ Validation ]
    Validates all fields (Zod-style manual validation)
    Ensures valid category, severity 1-10, urgency LOW/MEDIUM/HIGH
-            ↓
-[ Priority Score Calculation ] ← Hybrid Pro Formula
-   PriorityScore = (Cat×0.4) + (Sev×0.3) + (Scale×0.2) + (Wait×0.1)
-            ↓
-[ Firestore Database ] ← Collection: crises
+            |
+[ Priority Score Calculation ] <- Hybrid Pro Formula
+   PriorityScore = (Cat x 0.4) + (Sev x 0.3) + (Scale x 0.2) + (Wait x 0.1)
+            |
+[ Firestore Database ] <- Collection: crises
    Stores full crisis object with priorityBreakdown
-            ↓
-[ Admin Dashboard ] ← Prioritized Issues Panel
+            |
+[ Admin Dashboard ] <- Prioritized Issues Panel
    Displays sorted by priorityScore (highest = most urgent)
 ```
 
 ---
 
-## 🧮 Priority Formula (Hybrid Pro Formula — Solution Challenge 2026)
+## Priority Formula (Hybrid Pro Formula — Solution Challenge 2026)
 
 ```
-PriorityScore = (CategoryScore × 0.4)
-              + (SeverityScore × 0.3)
-              + (ScaleFactor × 0.2)
-              + (WaitTimeFactor × 0.1)
+PriorityScore = (CategoryScore x 0.4)
+              + (SeverityScore x 0.3)
+              + (ScaleFactor x 0.2)
+              + (WaitTimeFactor x 0.1)
 ```
 
 ### Category Weights
@@ -59,13 +59,13 @@ PriorityScore = (CategoryScore × 0.4)
 ### ScaleFactor Formula
 
 ```
-ScaleFactor = min(log10(people_affected + 1) × 2.5, 10)
+ScaleFactor = min(log10(people_affected + 1) x 2.5, 10)
 
 Examples:
-  10 people   → 2.5
-  100 people  → 5.0
-  1000 people → 7.5
-  10000+      → 10.0 (capped)
+  10 people   -> 2.5
+  100 people  -> 5.0
+  1000 people -> 7.5
+  10000+      -> 10.0 (capped)
 ```
 
 ### Gemini Response Schema (2026 Pro Move)
@@ -87,11 +87,11 @@ Examples:
 
 ---
 
-## 📁 Files Changed / Created
+## Files Changed / Created
 
-### 🔵 Backend — New Files
+### Backend — New Files
 
-#### 1. `backend/src/services/pipelineService.ts` ⭐ MAIN ENGINE
+#### 1. `backend/src/services/pipelineService.ts` - MAIN ENGINE
 > The full pipeline orchestrator. Implements all 5 steps in one TypeScript service.
 
 **Key exports:**
@@ -107,26 +107,26 @@ pipelineService.updateCrisisStatus(id, status)     // Update status in Firestore
 | Step | Function | What it does |
 |------|----------|-------------|
 | 1 | `runOCR()` | Calls Document AI, detects MIME type, returns text + confidence |
-| 2 | `preprocess()` | Cleans text, normalizes "medical" → "Health crisis", etc. |
+| 2 | `preprocess()` | Cleans text, normalizes "medical" -> "Health crisis", etc. |
 | 3 | `extractWithGemini()` | Calls Gemini 1.5 Flash with responseSchema, returns typed JSON |
 | 4 | `validateCrisisData()` | Manual Zod-style validation, throws descriptive errors |
 | 5 | `calculatePriorityScore()` | Applies the Hybrid Pro Formula with full breakdown |
 | 6 | `saveToFirestore()` | Saves to `crises` collection with `createdAt` timestamp |
 
 **Fallback behavior:**
-- Document AI not configured → uses realistic mock OCR text
-- Gemini API key missing → returns mock structured data
-- Firebase not initialized → returns mock ID (`mock-{timestamp}`)
+- Document AI not configured -> uses realistic mock OCR text
+- Gemini API key missing -> returns mock structured data
+- Firebase not initialized -> returns mock ID (`mock-{timestamp}`)
 
 ---
 
 #### 2. `backend/src/routes/crises.ts` — New API Route
 
 ```
-GET  /api/crises            → All crises sorted by priorityScore desc
-GET  /api/crises?category=Health  → Filter by category
-GET  /api/crises?limit=20   → Limit results
-PATCH /api/crises/:id/status → Update status (pending/active/resolved/dismissed)
+GET  /api/crises            -> All crises sorted by priorityScore desc
+GET  /api/crises?category=Health  -> Filter by category
+GET  /api/crises?limit=20   -> Limit results
+PATCH /api/crises/:id/status -> Update status (pending/active/resolved/dismissed)
 ```
 
 ---
@@ -139,19 +139,19 @@ POST /api/digitization/process
 ```
 
 Accepts:
-- `multipart/form-data` with `file` field → runs full OCR pipeline (multer)
-- `application/json` with `{ "text": "..." }` → skips OCR, text-only path
+- `multipart/form-data` with `file` field -> runs full OCR pipeline (multer)
+- `application/json` with `{ "text": "..." }` -> skips OCR, text-only path
 
 **Legacy endpoints kept** (backward compat):
 ```
-POST /api/digitization/upload   ← old Document AI only
-GET  /api/digitization/queue    ← HITL queue
-POST /api/digitization/commit   ← commit digitized doc as incident
+POST /api/digitization/upload   <- old Document AI only
+GET  /api/digitization/queue    <- HITL queue
+POST /api/digitization/commit   <- commit digitized doc as incident
 ```
 
 ---
 
-### 🔵 Backend — Modified Files
+### Backend — Modified Files
 
 #### `backend/src/index.ts`
 
@@ -165,7 +165,7 @@ app.use('/api/crises', crisesRouter)
 
 ---
 
-### 🟢 Frontend — New Files
+### Frontend — New Files
 
 #### 4. `src/api/crises.ts` — Frontend API Service
 
@@ -191,40 +191,40 @@ usePipelineProcessText()      // Mutation: text through pipeline (skip OCR)
 
 ---
 
-#### 6. `src/components/shared/PrioritizedIssues.tsx` ⭐ DASHBOARD PANEL
+#### 6. `src/components/shared/PrioritizedIssues.tsx` - DASHBOARD PANEL
 
 > The main dashboard panel showing pipeline output, sorted by priority.
 
 **Features:**
-- 🔵 **Priority Ring** — animated SVG circle, color-coded (red/amber/green)
-- 📊 **Breakdown Bars** — shows Category / Severity / Scale / WaitTime contributions
-- 🏷️ **Category Filter** — All / Health / Rescue / Water / Food / Shelter
-- 🔽 **Expandable rows** — click to see full breakdown + action buttons
-- ⚡ **Action buttons** — Mark Active / Resolve / Dismiss (calls PATCH API)
-- 🔄 **Auto-refresh** — every 60 seconds, with manual refresh button
-- 🏗️ **Architecture breadcrumb** — shows the pipeline steps in the header
-- ⏰ **Relative timestamps** — "2h ago", "15m ago"
-- 👥 **People affected** — displayed with icon
+- **Priority Ring** — animated SVG circle, color-coded (red/amber/green)
+- **Breakdown Bars** — shows Category / Severity / Scale / WaitTime contributions
+- **Category Filter** — All / Health / Rescue / Water / Food / Shelter
+- **Expandable rows** — click to see full breakdown + action buttons
+- **Action buttons** — Mark Active / Resolve / Dismiss (calls PATCH API)
+- **Auto-refresh** — every 60 seconds, with manual refresh button
+- **Architecture breadcrumb** — shows the pipeline steps in the header
+- **Relative timestamps** — "2h ago", "15m ago"
+- **People affected** — displayed with icon
 
 ---
 
-#### 7. `src/components/digitization/PipelineUpload.tsx` ⭐ PIPELINE UI
+#### 7. `src/components/digitization/PipelineUpload.tsx` - PIPELINE UI
 
 > The new "Full Pipeline" tab in Digitization Hub.
 
 **Features:**
-- 🎞️ **Animated step flow** — each step lights up as pipeline runs
-  - `Upload → Document AI (OCR) → Preprocessing → Gemini AI → Validation → Firestore`
-- 📂 **File upload** — drag-and-drop or click to browse
+- **Animated step flow** — each step lights up as pipeline runs
+  - `Upload -> Document AI (OCR) -> Preprocessing -> Gemini AI -> Validation -> Firestore`
+- **File upload** — drag-and-drop or click to browse
   - Accepts: JPEG, PNG, TIFF, PDF (max 20MB)
-- 📝 **Text mode** — paste raw field report text (skips OCR)
-- ✅ **Result display** — shows category, severity, priority score, summary, Firestore ID
-- 🔢 **OCR metadata** — confidence %, chars extracted, processing time (ms)
-- ❌ **Error display** — clear error messages with dismiss button
+- **Text mode** — paste raw field report text (skips OCR)
+- **Result display** — shows category, severity, priority score, summary, Firestore ID
+- **OCR metadata** — confidence %, chars extracted, processing time (ms)
+- **Error display** — clear error messages with dismiss button
 
 ---
 
-### 🟢 Frontend — Modified Files
+### Frontend — Modified Files
 
 #### `src/lib/queryKeys.ts`
 
@@ -259,12 +259,12 @@ import PrioritizedIssues from '@/components/shared/PrioritizedIssues'
 {activeTab === 'pipeline' && <PipelineUpload />}
 
 // Updated subtitle to show architecture:
-"Architecture: User Input → Document AI (OCR) → Preprocessing → Gemini JSON → Validate → Firestore"
+"Architecture: User Input -> Document AI (OCR) -> Preprocessing -> Gemini JSON -> Validate -> Firestore"
 ```
 
 ---
 
-## 📦 New Dependencies
+## New Dependencies
 
 ```bash
 # Backend
@@ -275,7 +275,7 @@ Multer is used to handle `multipart/form-data` file uploads in the `/api/digitiz
 
 ---
 
-## 🗃️ Firestore Collection: `crises`
+## Firestore Collection: `crises`
 
 ### Document Schema
 
@@ -308,7 +308,7 @@ Multer is used to handle `multipart/form-data` file uploads in the `/api/digitiz
 
 ---
 
-## 🔌 API Reference
+## API Reference
 
 ### `POST /api/digitization/process` — Run Full Pipeline
 
@@ -399,11 +399,11 @@ Valid statuses: `pending` | `active` | `resolved` | `dismissed`
 
 ---
 
-## 🖥️ UI Screenshots Reference
+## UI Screenshots Reference
 
 ### Dashboard — Prioritized Issues Panel
 - Located below the Map / Volunteers / Live Feed row
-- Shows architecture: `OCR → Preprocess → Gemini AI → Validate → Priority Score → Firestore`
+- Shows architecture: `OCR -> Preprocess -> Gemini AI -> Validate -> Priority Score -> Firestore`
 - Each crisis card shows: category icon, priority ring, urgency badge, location, summary, people count, time
 - Click any card to expand priority breakdown bars
 
@@ -415,7 +415,7 @@ Valid statuses: `pending` | `active` | `resolved` | `dismissed`
 
 ---
 
-## ⚠️ Environment Variables Required
+## Environment Variables Required
 
 ```env
 # Backend .env
@@ -438,7 +438,7 @@ FIREBASE_CLIENT_EMAIL=your-client-email
 
 ---
 
-## 🎯 What Makes This a Winning Implementation
+## What Makes This a Winning Implementation
 
 | Feature | Standard Approach | Our Implementation |
 |---------|------------------|-------------------|
@@ -452,13 +452,13 @@ FIREBASE_CLIENT_EMAIL=your-client-email
 
 ---
 
-## 📋 Commit Message (Suggested)
+## Commit Message (Suggested)
 
 ```
 feat(pipeline): implement full Data Digitization Pipeline with prioritized dashboard
 
-Architecture: User Input → Document AI OCR → Preprocessing → Gemini AI (schema-enforced)
-→ Validation → Priority Score → Firestore crises collection → Admin Dashboard
+Architecture: User Input -> Document AI OCR -> Preprocessing -> Gemini AI (schema-enforced)
+-> Validation -> Priority Score -> Firestore crises collection -> Admin Dashboard
 
 - Add pipelineService.ts: full 6-step orchestrator with Hybrid Pro Formula
 - Add GET /api/crises: returns crises sorted by priorityScore desc
@@ -469,6 +469,6 @@ Architecture: User Input → Document AI OCR → Preprocessing → Gemini AI (sc
 - Register /api/crises route in backend index.ts
 - Install multer for multipart file upload handling
 
-Priority Formula: (Category×0.4) + (Severity×0.3) + (ScaleFactor×0.2) + (WaitTime×0.1)
+Priority Formula: (Category x 0.4) + (Severity x 0.3) + (ScaleFactor x 0.2) + (WaitTime x 0.1)
 Health=10 > Rescue=8 > Water=6 > Food=5 > Shelter=4
 ```
