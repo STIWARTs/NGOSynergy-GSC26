@@ -20,10 +20,15 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
-// Only initialize if the API key is properly set
+// Initialize Firebase auth only when all required web SDK fields are present.
+// This prevents the app from getting stuck in "auth checking" blank state
+// when a partial .env is provided.
 const isFirebaseConfigured =
   !!firebaseConfig.apiKey &&
-  firebaseConfig.apiKey !== 'REPLACE_WITH_WEB_API_KEY'
+  firebaseConfig.apiKey !== 'REPLACE_WITH_WEB_API_KEY' &&
+  !!firebaseConfig.authDomain &&
+  !!firebaseConfig.projectId &&
+  !!firebaseConfig.appId
 
 let app: FirebaseApp | null = null
 let auth: Auth | null = null

@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { matchingService } from '@/api/matching'
 import { queryKeys } from '@/lib/queryKeys'
 import { AIWeights } from '@/types'
+import { useQueryClient } from '@tanstack/react-query'
 
 export function useMatchResults(
   incidentId: string,
@@ -17,8 +18,16 @@ export function useMatchResults(
 }
 
 export function useDeployMatch() {
+  const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: ({ incidentId, volunteerId }: { incidentId: string; volunteerId: string }) =>
       matchingService.deployVolunteer({ incidentId, volunteerId }),
+    onSuccess: () => {
+      // Keep dashboard and matching views in sync right after assignment.
+      queryClient.invalidateQueries({ queryKey: queryKeys.volunteers.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.incidents.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.incidents.stats })
+    },
   })
 }

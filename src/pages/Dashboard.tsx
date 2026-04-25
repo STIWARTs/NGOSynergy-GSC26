@@ -69,9 +69,11 @@ export default function Dashboard() {
   const [selectedIncident, setSelectedIncident] = useState<any>(null)
   const [infoWindowPosition, setInfoWindowPosition] = useState<google.maps.LatLngLiteral | null>(null)
   const [legendOpen, setLegendOpen] = useState(false)
+  const [volunteerStatusFilter, setVolunteerStatusFilter] = useState<'all' | 'active' | 'inactive' | 'deployed'>('all')
+  const [showVolunteerMarkers, setShowVolunteerMarkers] = useState(true)
   const { data: incidents } = useActiveIncidents()
   const { data: stats, isLoading: statsLoading } = useIncidentStats()
-  const { data: volunteersData } = useVolunteers(undefined, undefined, undefined, undefined, 1, 8)
+  const { data: volunteersData } = useVolunteers(undefined, undefined, undefined, undefined, 1, 200)
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? localStorage.getItem('googleMapsApiKey') ?? ''
   const { isLoaded } = useJsApiLoader({
     id: 'google-maps-script',
@@ -110,34 +112,37 @@ export default function Dashboard() {
     return { lat: 21.2514, lng: 81.6296 } // Default to Raipur
   }, [incidents])
 
-  // Generate random positions for volunteers around the center
+  const filteredVolunteers = useMemo(() => {
+    const all = volunteersData?.items ?? []
+    if (volunteerStatusFilter === 'all') return all
+    return all.filter((v: any) => v.status === volunteerStatusFilter)
+  }, [volunteersData, volunteerStatusFilter])
+
   const volunteerPositions = useMemo(() => {
-    const activeVolunteers = (volunteersData?.items ?? []).filter((v: any) => v.status === 'active').slice(0, 8)
-    return activeVolunteers.map((volunteer: any) => {
-      // Use volunteer's actual coordinates if available, otherwise generate random offset
-      if (volunteer.currentCoordinates) {
+    return filteredVolunteers
+      .map((volunteer: any) => {
+        const coords = volunteer.currentCoordinates ?? volunteer.homeCoordinates
+        if (!coords) return null
+
         return {
           id: volunteer.id,
           name: volunteer.name,
+          status: volunteer.status,
           skills: volunteer.skills,
           position: {
-            lat: volunteer.currentCoordinates.lat + (Math.random() - 0.5) * 0.02,
-            lng: volunteer.currentCoordinates.lng + (Math.random() - 0.5) * 0.02,
+            lat: coords.lat,
+            lng: coords.lng,
           },
         }
-      }
-      // Fallback: random position around map center
-      return {
-        id: volunteer.id,
-        name: volunteer.name,
-        skills: volunteer.skills,
-        position: {
-          lat: mapCenter.lat + (Math.random() - 0.5) * 0.05,
-          lng: mapCenter.lng + (Math.random() - 0.5) * 0.05,
-        },
-      }
-    })
-  }, [volunteersData, mapCenter])
+      })
+      .filter(Boolean) as Array<{
+      id: string
+      name: string
+      status: 'active' | 'inactive' | 'deployed'
+      skills: string[]
+      position: { lat: number; lng: number }
+    }>
+  }, [filteredVolunteers])
 
   // Handle incident marker click
   const handleIncidentClick = useCallback((incident: any) => {
@@ -181,6 +186,34 @@ export default function Dashboard() {
           value={stats ? `${stats.avgResponseTime}m` : 0}
           isLoading={statsLoading}
         />
+      </div>
+
+      <div className="bg-surface border border-border rounded-lg px-4 py-3 flex flex-wrap items-center gap-4">
+        <label className="text-xs text-text-muted flex items-center gap-2">
+          Volunteer view
+          <select
+            value={volunteerStatusFilter}
+            onChange={(e) =>
+              setVolunteerStatusFilter(e.target.value as 'all' | 'active' | 'inactive' | 'deployed')
+            }
+            className="bg-base border border-border rounded px-2 py-1 text-xs text-text-primary"
+          >
+            <option value="all">All volunteers</option>
+            <option value="active">Active volunteers</option>
+            <option value="inactive">Inactive volunteers</option>
+            <option value="deployed">Deployed volunteers</option>
+          </select>
+        </label>
+
+        <label className="text-xs text-text-muted flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showVolunteerMarkers}
+            onChange={(e) => setShowVolunteerMarkers(e.target.checked)}
+          />
+          Show volunteer markers
+        </label>
+
       </div>
 
       {/* 3 Panels in Single Row: Map | Volunteers | Live Feed */}
@@ -307,9 +340,9 @@ export default function Dashboard() {
                   opacity: 0.6,
                 }}
               />
-              {incidents.map((incident) => (
+              {incidents.map((incident, index) => (
                 <MarkerF
-                  key={incident.id}
+                  key={`incident-marker-${incident.id ?? incident.title ?? 'unknown'}-${index}`}
                   position={{ lat: incident.coordinates.lat, lng: incident.coordinates.lng }}
                   animation={
                     incident.status === 'active' && !incident.verified ? google.maps.Animation.BOUNCE : undefined
@@ -355,22 +388,24 @@ export default function Dashboard() {
                   </div>
                 </InfoWindowF>
               )}
-              {volunteerPositions.map((vol: any) => (
-                <MarkerF
-                  key={vol.id}
-                  position={vol.position}
-                  icon={{
-                    path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
-                    scale: 2,
-                    fillColor: '#3B82F6',
-                    fillOpacity: 1,
-                    strokeWeight: 1.5,
-                    strokeColor: '#F1F5F9',
-                    anchor: new google.maps.Point(12, 22),
-                  }}
-                  title={`${vol.name || 'Active Volunteer'} - Skills: ${(vol.skills || []).slice(0, 3).join(', ')}`}
-                />
-              ))}
+              {showVolunteerMarkers &&
+                volunteerPositions.map((vol: any, index: number) => (
+                  <MarkerF
+                    key={`volunteer-marker-${vol.id ?? vol.name ?? 'unknown'}-${index}`}
+                    position={vol.position}
+                    icon={{
+                      // Use same volunteer icon style as Matching Engine.
+                      path: 'M12 2a4 4 0 1 1 0 8a4 4 0 0 1 0-8zm0 10c-4.42 0-8 2.69-8 6v2h16v-2c0-3.31-3.58-6-8-6z',
+                      scale: 1.1,
+                      fillColor:
+                        vol.status === 'deployed' ? '#8B5CF6' : vol.status === 'inactive' ? '#64748B' : '#3B82F6',
+                      fillOpacity: 1,
+                      strokeWeight: 1.5,
+                      strokeColor: '#F1F5F9',
+                    }}
+                    title={`${vol.name || 'Volunteer'} (${vol.status}) - Skills: ${(vol.skills || []).slice(0, 3).join(', ')}`}
+                  />
+                ))}
             </GoogleMap>
           ) : (
             <div className="h-full flex items-center justify-center bg-gradient-to-br from-base to-surface">
@@ -388,16 +423,19 @@ export default function Dashboard() {
         {/* Panel 2: Active Volunteers */}
         <div className="lg:col-span-3 bg-surface border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: '680px' }}>
           <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-blue-500/10 to-cyan-500/10">
-            <h2 className="text-sm font-semibold text-text-primary">Active Volunteers</h2>
+            <h2 className="text-sm font-semibold text-text-primary">
+              {volunteerStatusFilter === 'all'
+                ? 'All Volunteers'
+                : `${volunteerStatusFilter[0].toUpperCase()}${volunteerStatusFilter.slice(1)} Volunteers`}
+            </h2>
             <p className="text-xs text-text-muted mt-1">
-              {(volunteersData?.items ?? []).filter((v: any) => v.status === 'active').length} on duty
+              {filteredVolunteers.length} shown
             </p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {(volunteersData?.items ?? [])
-              .filter((v: any) => v.status === 'active')
-              .slice(0, 8)
+            {filteredVolunteers
+              .slice(0, 20)
               .map((volunteer: any) => (
                 <div key={volunteer.id} className="p-3 bg-base/50 rounded-lg border border-border hover:border-blue-500/50 transition-colors">
                   <div className="flex items-start justify-between mb-2">
@@ -410,7 +448,15 @@ export default function Dashboard() {
                         <p className="text-xs text-text-muted">{volunteer.email}</p>
                       </div>
                     </div>
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        volunteer.status === 'deployed'
+                          ? 'bg-purple-500'
+                          : volunteer.status === 'inactive'
+                            ? 'bg-slate-500'
+                            : 'bg-green-500'
+                      }`}
+                    />
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {(volunteer.skills || []).slice(0, 3).map((skill: string, idx: number) => (
@@ -425,6 +471,9 @@ export default function Dashboard() {
                       <span>{volunteer.currentCoordinates.lat.toFixed(4)}, {volunteer.currentCoordinates.lng.toFixed(4)}</span>
                     </div>
                   )}
+                  <div className="mt-2 text-[11px] uppercase tracking-wide text-text-muted">
+                    Status: {volunteer.status}
+                  </div>
                 </div>
               ))}
           </div>
