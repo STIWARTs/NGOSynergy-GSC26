@@ -3,14 +3,29 @@ import { DigitizationItem, DigitizedExtraction } from '@/types'
 
 export const digitizationService = {
   getQueue: async (): Promise<DigitizationItem[]> => {
-    return fetchApi<DigitizationItem[]>('GET', '/api/digitization/queue')
+    const response = await fetchApi<{ items: DigitizationItem[] }>('GET', '/api/digitization/queue')
+    return response.items || []
   },
 
   uploadFiles: async (files: File[], source: 'batch' | 'single'): Promise<DigitizationItem[]> => {
     const formData = new FormData()
     files.forEach((file) => formData.append('files', file))
     formData.append('source', source)
-    return fetchApiFormData<DigitizationItem[]>('/api/digitization/upload', formData)
+    
+    // The current backend upload route only processes one file and returns { success, filename, extractedData }
+    // We'll wrap it in a pseudo-DigitizationItem array to keep the UI components working
+    const response = await fetchApiFormData<any>('/api/digitization/upload', formData)
+    
+    return [{
+      id: `doc-${Date.now()}`,
+      filename: response.filename || 'Uploaded Document',
+      status: 'pending',
+      uploadedAt: new Date(),
+      source,
+      pageCount: 1,
+      progress: 100,
+      extractedData: response.extractedData
+    }]
   },
 
   updateProgress: async (_id: string): Promise<DigitizationItem | null> => {

@@ -1,6 +1,7 @@
 import { useActiveIncidents, useIncidentStats } from '@/hooks/useIncidents'
 import { useVolunteers } from '@/hooks/useVolunteers'
 import StatCard from '@/components/shared/StatCard'
+import PrioritizedIssues from '@/components/shared/PrioritizedIssues'
 import { GoogleMap, HeatmapLayerF, MarkerF, useJsApiLoader, InfoWindowF } from '@react-google-maps/api'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { ChevronDown, ChevronUp, MapPin } from 'lucide-react'
@@ -540,6 +541,11 @@ export default function Dashboard() {
               )}
             </div>
         </div>
+      </div>
+
+      {/* Prioritized Issues — Data Digitization Pipeline Output */}
+      <div className="mt-2">
+        <PrioritizedIssues />
       </div>
     </div>
   )

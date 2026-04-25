@@ -25,4 +25,8 @@ export const queryKeys = {
     weights: ['config', 'weights'] as const,
     multipliers: ['config', 'multipliers'] as const,
   },
+  crises: {
+    all: ['crises'] as const,
+    byCategory: (category: string) => ['crises', category] as const,
+  },
 }
