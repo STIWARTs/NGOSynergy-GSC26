@@ -20,16 +20,16 @@ function getDb() {
 
 async function firestoreFallback<T>(
   dbCall: () => Promise<T>,
-  _fallback: T
+  fallback: T
 ): Promise<T> {
   try {
     const result = await dbCall()
     firestoreAvailable = true
     return result
   } catch (err) {
-    console.error('Firestore call failed (no mock fallback allowed):', (err as Error).message)
+    console.error('Firestore call failed, falling back to mock data:', (err as Error).message)
     firestoreAvailable = false
-    throw err
+    return fallback
   }
 }
 

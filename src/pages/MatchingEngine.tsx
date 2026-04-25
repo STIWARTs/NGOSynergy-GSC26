@@ -26,7 +26,6 @@ const volunteerHomeIcon = {
   fillOpacity: 1,
   strokeColor: '#F8FAFC',
   strokeWeight: 1.5,
-  anchor: new google.maps.Point(12, 22),
 }
 
 const incidentAlertIcon = {
@@ -36,17 +35,18 @@ const incidentAlertIcon = {
   fillOpacity: 0.95,
   strokeColor: '#F8FAFC',
   strokeWeight: 1.5,
-  anchor: new google.maps.Point(12, 20),
 }
 
 export default function MatchingEngine() {
   const [incidentId, setIncidentId] = useState('')
+  const [radiusIncidentId, setRadiusIncidentId] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [urgencyFilter, setUrgencyFilter] = useState('all')
   const [zoneFilter, setZoneFilter] = useState('all')
   const [radiusKm, setRadiusKm] = useState(30)
   const [topN, setTopN] = useState(10)
-  const [showNearestOnly, setShowNearestOnly] = useState(true)
+  const [showAllVolunteersOnMap, setShowAllVolunteersOnMap] = useState(true)
+  const [showAllCrisesOnMap, setShowAllCrisesOnMap] = useState(true)
   const [loadingRecommendations, setLoadingRecommendations] = useState(false)
   const [selectedVolunteerPin, setSelectedVolunteerPin] = useState<string | null>(null)
   const [theme, setTheme] = useState<'dark' | 'light'>(
@@ -54,7 +54,7 @@ export default function MatchingEngine() {
   )
   const { weights } = useAIWeights()
   const { data: incidents = [], isLoading: incidentsLoading } = useActiveIncidents()
-  const { data: volunteersData } = useVolunteers(undefined, 'active', undefined, undefined, 1, 100)
+  const { data: volunteersData } = useVolunteers(undefined, undefined, undefined, undefined, 1, 200)
   const volunteers = volunteersData?.items ?? []
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? localStorage.getItem('googleMapsApiKey') ?? ''
   const { isLoaded } = useJsApiLoader({
@@ -66,15 +66,16 @@ export default function MatchingEngine() {
   const now = Date.now()
   const highPriorityIncidents = useMemo(() => {
     return incidents
-      .filter(
-        (incident) =>
-          incident.status !== 'resolved' &&
-          (incident.verified || incident.geminiVerified || incident.status === 'active' || incident.status === 'verified')
-      )
+      // Show all ongoing incidents in queue/map. Do not hide pending items.
+      .filter((incident) => incident.status !== 'resolved')
       .map((incident) => {
         const ageHours = (now - new Date(incident.timestamp).getTime()) / (1000 * 60 * 60)
         const timeFactor = Math.min(12, Math.max(1, ageHours))
-        const priorityScore = (incident.impact ?? 1) * incident.severity + timeFactor
+        const impact = Number(incident.impact ?? 1)
+        const severity = Number(incident.severity ?? 1)
+        const normalizedImpact = Number.isFinite(impact) ? impact : 1
+        const normalizedSeverity = Number.isFinite(severity) ? severity : 1
+        const priorityScore = normalizedImpact * normalizedSeverity * 10 + timeFactor
         return { ...incident, priorityScore }
       })
       .filter((incident) => (categoryFilter === 'all' ? true : incident.category === categoryFilter))
@@ -94,14 +95,21 @@ export default function MatchingEngine() {
   }, [categoryFilter, incidents, now, urgencyFilter, zoneFilter])
 
   const selectedIncident = useMemo(
-    () => highPriorityIncidents.find((incident) => incident.id === incidentId) ?? highPriorityIncidents[0],
+    () => highPriorityIncidents.find((incident) => incident.id === incidentId) ?? null,
     [highPriorityIncidents, incidentId]
   )
   const { data: suggestedMatches = [] } = useMatchResults(selectedIncident?.id ?? '', weights, { radiusKm, limit: topN })
   const deployMutation = useDeployMatch()
 
   const rankedVolunteers = useMemo(() => {
-    if (!selectedIncident) return []
+    if (!selectedIncident) {
+      return volunteers
+        .map((volunteer) => ({
+          ...volunteer,
+          matchScore: Math.round((volunteer.reliabilityScore ?? 0) * 100),
+        }))
+        .sort((a, b) => b.matchScore - a.matchScore)
+    }
 
     return volunteers
       .map((volunteer) => {
@@ -130,10 +138,12 @@ export default function MatchingEngine() {
   }, [selectedIncident, volunteers, weights])
 
   useEffect(() => {
-    if (!selectedIncident && highPriorityIncidents[0]) {
-      setIncidentId(highPriorityIncidents[0].id)
+    if (!radiusIncidentId) return
+    const stillExists = highPriorityIncidents.some((incident) => incident.id === radiusIncidentId)
+    if (!stillExists) {
+      setRadiusIncidentId(null)
     }
-  }, [highPriorityIncidents, selectedIncident])
+  }, [highPriorityIncidents, radiusIncidentId])
 
   useEffect(() => {
     setLoadingRecommendations(true)
@@ -159,7 +169,12 @@ export default function MatchingEngine() {
   }, [])
 
   const mapStyle = theme === 'light' ? undefined : darkMapStyle
-  const displayedRecommendations = suggestedMatches.length > 0 ? suggestedMatches : rankedVolunteers.slice(0, 3)
+  const displayedRecommendations =
+    suggestedMatches.length > 0
+      ? suggestedMatches
+      : selectedIncident
+        ? rankedVolunteers.slice(0, 3)
+        : rankedVolunteers
   const displayedRecommendationsWithCoords = useMemo(
     () =>
       displayedRecommendations.map((volunteer) => {
@@ -186,9 +201,33 @@ export default function MatchingEngine() {
     return new Set(displayedRecommendationsWithCoords.map((v) => ('volunteerId' in v ? v.volunteerId : v.id)))
   }, [displayedRecommendationsWithCoords])
 
-  const volunteerPinsToShow = showNearestOnly
-    ? allVolunteerPins.filter((v) => recommendedIds.has(v.id))
-    : allVolunteerPins
+  const volunteerPinsToShow = showAllVolunteersOnMap
+    ? allVolunteerPins
+    : allVolunteerPins.filter((v) => recommendedIds.has(v.id))
+
+  const radiusIncident = useMemo(() => {
+    if (!radiusIncidentId) return null
+    return highPriorityIncidents.find((incident) => incident.id === radiusIncidentId) ?? null
+  }, [highPriorityIncidents, radiusIncidentId])
+
+  const mapCenter = useMemo(() => {
+    // When user selects a crisis, always focus map on that crisis.
+    if (selectedIncident) {
+      return { lat: selectedIncident.coordinates.lat, lng: selectedIncident.coordinates.lng }
+    }
+    if (showAllCrisesOnMap && highPriorityIncidents.length > 0) {
+      const avgLat =
+        highPriorityIncidents.reduce((sum, incident) => sum + incident.coordinates.lat, 0) /
+        highPriorityIncidents.length
+      const avgLng =
+        highPriorityIncidents.reduce((sum, incident) => sum + incident.coordinates.lng, 0) /
+        highPriorityIncidents.length
+      return { lat: avgLat, lng: avgLng }
+    }
+    return { lat: 21.2514, lng: 81.6296 }
+  }, [highPriorityIncidents, selectedIncident, showAllCrisesOnMap])
+
+  const mapZoom = selectedIncident ? 11 : showAllCrisesOnMap && highPriorityIncidents.length > 1 ? 6 : 13
 
   return (
     <div className="space-y-4 h-full">
@@ -232,10 +271,18 @@ export default function MatchingEngine() {
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={showNearestOnly}
-              onChange={(e) => setShowNearestOnly(e.target.checked)}
+              checked={showAllCrisesOnMap}
+              onChange={(e) => setShowAllCrisesOnMap(e.target.checked)}
             />
-            Show nearest only
+            Show all crises on map
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={showAllVolunteersOnMap}
+              onChange={(e) => setShowAllVolunteersOnMap(e.target.checked)}
+            />
+            Show all volunteers
           </label>
           <div className="flex items-center gap-2">
             <span>Radius</span>
@@ -271,7 +318,11 @@ export default function MatchingEngine() {
             {highPriorityIncidents.map((incident) => (
               <button
                 key={incident.id}
-                onClick={() => setIncidentId(incident.id)}
+                onClick={() => {
+                  const nextIncidentId = incidentId === incident.id ? '' : incident.id
+                  setIncidentId(nextIncidentId)
+                  setRadiusIncidentId(nextIncidentId || null)
+                }}
                 className={`w-full text-left border rounded p-3 transition-colors ${
                   selectedIncident?.id === incident.id ? 'border-action bg-base' : 'border-border hover:border-action/50'
                 }`}
@@ -280,8 +331,15 @@ export default function MatchingEngine() {
                 <p className="text-xs text-text-muted">{incident.location}</p>
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-xs text-text-muted">{incident.category}</span>
-                  <span className="text-xs px-2 py-1 rounded bg-urgency/20 text-urgency">
-                    {Math.round(incident.priorityScore)}
+                  <span
+                    className={`inline-flex items-center justify-center w-6 h-6 rounded ${
+                      incident.priorityScore >= 70 ? 'bg-red-500/20' : 'bg-amber-500/20'
+                    }`}
+                    title={incident.priorityScore >= 70 ? 'Critical (Red)' : 'High (Yellow)'}
+                  >
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill={incident.priorityScore >= 70 ? '#EF4444' : '#F59E0B'}>
+                      <path d="M12 2L2 20h20L12 2zm0 5.5c.55 0 1 .45 1 1V13a1 1 0 1 1-2 0V8.5c0-.55.45-1 1-1zm0 9.5a1.25 1.25 0 1 1 0-2.5a1.25 1.25 0 0 1 0 2.5z" />
+                    </svg>
                   </span>
                 </div>
               </button>
@@ -327,7 +385,9 @@ export default function MatchingEngine() {
                     <p className="text-xs text-text-primary">
                       {'reasoning' in volunteer
                         ? volunteer.reasoning
-                        : `Prioritized due to ${volunteer.skills[0]} skill alignment, nearby distance, and proven reliability.`}
+                        : selectedIncident
+                          ? `Prioritized due to ${volunteer.skills[0]} skill alignment, nearby distance, and proven reliability.`
+                          : 'Showing volunteer availability overview. Select a crisis to see incident-specific ML ranking.'}
                     </p>
                     <button
                       className="w-full px-3 py-2 rounded bg-action text-white text-xs"
@@ -354,30 +414,70 @@ export default function MatchingEngine() {
         </div>
 
         <div className="bg-surface border border-border rounded-lg overflow-hidden min-h-0">
-          {isLoaded && selectedIncident ? (
+          {isLoaded ? (
             <GoogleMap
               key={`matching-map-${theme}`}
               mapContainerStyle={{ width: '100%', height: '100%' }}
-              center={{ lat: selectedIncident.coordinates.lat, lng: selectedIncident.coordinates.lng }}
-              zoom={13}
+              center={mapCenter}
+              zoom={mapZoom}
               options={{ disableDefaultUI: true, styles: mapStyle }}
             >
-              <CircleF
-                center={{ lat: selectedIncident.coordinates.lat, lng: selectedIncident.coordinates.lng }}
-                radius={radiusKm * 1000}
-                options={{
-                  fillColor: '#3B82F6',
-                  fillOpacity: 0.12,
-                  strokeColor: '#60A5FA',
-                  strokeOpacity: 0.9,
-                  strokeWeight: 2,
-                }}
-              />
-              <MarkerF
-                position={{ lat: selectedIncident.coordinates.lat, lng: selectedIncident.coordinates.lng }}
-                icon={incidentAlertIcon}
-                title={`${selectedIncident.title} (Incident)`}
-              />
+              {radiusIncident ? (
+                <CircleF
+                  center={{ lat: radiusIncident.coordinates.lat, lng: radiusIncident.coordinates.lng }}
+                  radius={radiusKm * 1000}
+                  options={{
+                    fillColor: '#3B82F6',
+                    fillOpacity: 0.12,
+                    strokeColor: '#60A5FA',
+                    strokeOpacity: 0.9,
+                    strokeWeight: 2,
+                  }}
+                />
+              ) : null}
+              {showAllCrisesOnMap
+                ? highPriorityIncidents.map((incident) => {
+                    const isSelected = selectedIncident?.id === incident.id
+                    const isCritical = incident.priorityScore >= 70
+                    return (
+                      <MarkerF
+                        key={`crisis-${incident.id}`}
+                        position={{ lat: incident.coordinates.lat, lng: incident.coordinates.lng }}
+                        icon={{
+                          ...incidentAlertIcon,
+                          fillColor: isCritical ? '#EF4444' : '#F59E0B',
+                          fillOpacity: isSelected ? 0.98 : 0.85,
+                          scale: isSelected ? 1.3 : 1.1,
+                          anchor: new google.maps.Point(12, 20),
+                        }}
+                        title={`${incident.title} (${incident.location})`}
+                        onClick={() => {
+                          const nextIncidentId = incidentId === incident.id ? '' : incident.id
+                          setIncidentId(nextIncidentId)
+                          setRadiusIncidentId(nextIncidentId || null)
+                        }}
+                      />
+                    )
+                  })
+                : selectedIncident && (
+                    <MarkerF
+                      key={`crisis-selected-${selectedIncident.id}`}
+                      position={{ lat: selectedIncident.coordinates.lat, lng: selectedIncident.coordinates.lng }}
+                      icon={{
+                        ...incidentAlertIcon,
+                        fillColor: selectedIncident.priorityScore >= 70 ? '#EF4444' : '#F59E0B',
+                        fillOpacity: 0.98,
+                        scale: 1.3,
+                        anchor: new google.maps.Point(12, 20),
+                      }}
+                      title={`${selectedIncident.title} (${selectedIncident.location})`}
+                      onClick={() => {
+                        const nextIncidentId = incidentId === selectedIncident.id ? '' : selectedIncident.id
+                        setIncidentId(nextIncidentId)
+                        setRadiusIncidentId(nextIncidentId || null)
+                      }}
+                    />
+                  )}
               {volunteerPinsToShow.map((volunteer) => (
                 <MarkerF
                   key={`vol-${volunteer.id}`}
