@@ -55,7 +55,7 @@ export async function extractText(documentBuffer, filename = "") {
     // Detect MIME type
     const mimeType = detectMimeType(documentBuffer, filename);
 
-    console.log(`📄 Processing document (${mimeType})...`);
+    console.log(`Processing document (${mimeType})...`);
 
     // Construct processor name
     const name = `projects/${config.projectId}/locations/${config.location}/processors/${config.processorId}`;
@@ -72,8 +72,8 @@ export async function extractText(documentBuffer, filename = "") {
     const text = result.document.text || "";
     const entities = result.document.entities || [];
 
-    console.log(`✅ Extracted ${text.length} characters`);
-    console.log(`📊 Found ${entities.length} entities`);
+    console.log(`Extracted ${text.length} characters`);
+    console.log(`Found ${entities.length} entities`);
 
     return {
       text,
@@ -85,7 +85,7 @@ export async function extractText(documentBuffer, filename = "") {
       },
     };
   } catch (error) {
-    console.error("❌ Document AI Error:", error.message);
+    console.error("Document AI Error:", error.message);
     throw new Error(`Document AI extraction failed: ${error.message}`);
   }
 }

@@ -24,7 +24,7 @@ const requiredEnvVars = [
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
-    console.warn(`⚠️  Warning: ${envVar} is not set in .env file`);
+    console.warn(`Warning: ${envVar} is not set in .env file`);
   }
 }
 
