@@ -2,8 +2,9 @@ import { useMemo, useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useIncidents } from '@/hooks/useIncidents'
 import { reportsService } from '@/api/reports'
+import { incidentService } from '@/api/incidents'
 import { queryKeys } from '@/lib/queryKeys'
-import { Upload, X, FileText, Image, File } from 'lucide-react'
+import { Upload, X, FileText, Image, File, FolderOpen } from 'lucide-react'
 
 export default function CrisisReports() {
   const [query, setQuery] = useState('')
@@ -18,6 +19,7 @@ export default function CrisisReports() {
   const [affectedCount, setAffectedCount] = useState(0)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [viewingDocuments, setViewingDocuments] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
   const { data: incidents = [], isLoading } = useIncidents()
@@ -32,6 +34,15 @@ export default function CrisisReports() {
       setLat('')
       setLng('')
       setAffectedCount(0)
+    },
+  })
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      incidentService.updateStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.incidents.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.incidents.active })
     },
   })
 
@@ -293,30 +304,54 @@ export default function CrisisReports() {
       </div>
 
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
-        <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-border text-xs text-text-muted font-mono">
-          <span className="col-span-4">Incident</span>
+        <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-border text-xs text-text-muted font-mono items-center">
+          <span className="col-span-3">Incident</span>
           <span className="col-span-2">Category</span>
-          <span className="col-span-2">Urgency</span>
-          <span className="col-span-2">Status</span>
-          <span className="col-span-2">Affected</span>
+          <span className="col-span-1 text-center">Urgency</span>
+          <span className="col-span-1 text-center">Status</span>
+          <span className="col-span-1 text-center">Affected</span>
+          <span className="col-span-2 text-center">Update</span>
+          <span className="col-span-2 flex justify-end">Documents</span>
         </div>
         {!isLoading && filteredIncidents.map((incident) => (
           <div
             key={incident.id}
-            className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-border last:border-b-0 text-sm"
+            className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-border last:border-b-0 text-sm items-center"
           >
-            <div className="col-span-4">
-              <p className="text-text-primary font-medium">{incident.title}</p>
-              <p className="text-text-muted text-xs">{incident.location}</p>
+            <div className="col-span-3">
+              <p className="text-text-primary font-medium truncate" title={incident.title}>{incident.title}</p>
+              <p className="text-text-muted text-xs truncate" title={incident.location}>{incident.location}</p>
             </div>
-            <span className="col-span-2 text-text-primary">{incident.category}</span>
-            <span className="col-span-2 text-text-primary">{incident.urgencyScore}</span>
-            <span className="col-span-2">
-              <span className="px-2 py-1 rounded bg-base border border-border text-text-primary text-xs">
+            <span className="col-span-2 text-text-primary truncate" title={incident.category}>{incident.category}</span>
+            <span className="col-span-1 text-text-primary text-center">{incident.urgencyScore}</span>
+            <span className="col-span-1 text-center">
+              <span className="px-1.5 py-0.5 rounded bg-base border border-border text-text-primary text-[10px] whitespace-nowrap">
                 {incident.status}
               </span>
             </span>
-            <span className="col-span-2 text-text-primary">{incident.affectedCount}</span>
+            <span className="col-span-1 text-text-primary text-center">{incident.affectedCount}</span>
+            <span className="col-span-2 flex justify-center">
+              <select
+                value={incident.status}
+                onChange={(e) => updateStatusMutation.mutate({ id: incident.id, status: e.target.value })}
+                disabled={updateStatusMutation.isPending}
+                className="px-2 py-1 rounded bg-surface border border-border text-text-primary text-xs w-full max-w-[100px] focus:outline-none focus:border-indigo-500/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="pending">Pending</option>
+                <option value="active">Active</option>
+                <option value="verified">Verified</option>
+                <option value="resolved">Resolved</option>
+              </select>
+            </span>
+            <span className="col-span-2 flex justify-end">
+              <button
+                onClick={() => setViewingDocuments(incident.id)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-medium transition-all"
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                <span className="hidden xl:inline">View Docs</span>
+              </button>
+            </span>
           </div>
         ))}
         {isLoading && (
@@ -326,6 +361,99 @@ export default function CrisisReports() {
           <p className="p-6 text-sm text-text-muted text-center">No incidents match your filters.</p>
         )}
       </div>
+
+      {/* Documents Modal */}
+      {viewingDocuments && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-surface border border-border rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div>
+                <h3 className="text-lg font-semibold text-text-primary">Attached Documents</h3>
+                <p className="text-xs text-text-muted mt-1">
+                  Incident ID: {viewingDocuments}
+                </p>
+              </div>
+              <button
+                onClick={() => setViewingDocuments(null)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-text-muted" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: '60vh' }}>
+              {(() => {
+                const incident = incidents.find(inc => inc.id === viewingDocuments)
+                const hasFile = incident?.fileName
+                
+                if (!hasFile) {
+                  return (
+                    <div className="text-center py-12">
+                      <FolderOpen className="w-16 h-16 text-text-muted mx-auto mb-4 opacity-30" />
+                      <p className="text-sm text-text-muted font-medium">No documents attached</p>
+                      <p className="text-xs text-text-muted mt-2 opacity-60">
+                        Documents uploaded with this report will appear here
+                      </p>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-base border-b border-border text-xs text-text-muted font-mono">
+                      <span className="col-span-1">#</span>
+                      <span className="col-span-1">Type</span>
+                      <span className="col-span-5">File Name</span>
+                      <span className="col-span-3">File Type</span>
+                      <span className="col-span-2">Action</span>
+                    </div>
+                    
+                    {/* Table Body */}
+                    <div className="divide-y divide-border">
+                      <div className="grid grid-cols-12 gap-4 px-4 py-3 text-sm hover:bg-white/5 transition-colors">
+                        <span className="col-span-1 text-text-muted">1</span>
+                        <span className="col-span-1">
+                          {incident?.fileType?.includes('image') ? (
+                            <Image className="w-5 h-5 text-indigo-400" />
+                          ) : incident?.fileType === 'application/pdf' ? (
+                            <FileText className="w-5 h-5 text-red-400" />
+                          ) : (
+                            <File className="w-5 h-5 text-green-400" />
+                          )}
+                        </span>
+                        <span className="col-span-5 text-text-primary font-medium truncate">
+                          {incident?.fileName}
+                        </span>
+                        <span className="col-span-3 text-text-muted text-xs">
+                          {incident?.fileType || 'Unknown'}
+                        </span>
+                        <span className="col-span-2">
+                          <button className="px-3 py-1.5 rounded bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-medium transition-all">
+                            Download
+                          </button>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-border flex justify-end">
+              <button
+                onClick={() => setViewingDocuments(null)}
+                className="px-4 py-2 rounded bg-base border border-border text-text-primary text-sm hover:bg-white/5 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
