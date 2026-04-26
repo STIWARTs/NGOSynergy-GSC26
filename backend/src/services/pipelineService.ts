@@ -8,6 +8,8 @@
 import { DocumentProcessorServiceClient } from '@google-cloud/documentai'
 import axios from 'axios'
 import admin from 'firebase-admin'
+import { storageService } from './storageService.js'
+import { documentService } from './documentService.js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -373,10 +375,45 @@ export const pipelineService = {
       scaleFactor,
     }
 
-    // Step 5: Save to Firestore
+    // Step 5: Save crisis to Firestore
     onStep?.('storage', 'Saving to Firestore database...')
     const id = await saveToFirestore(finalData, text)
     console.log(`[Pipeline] Saved to Firestore — ID: ${id}`)
+
+    // Step 6: Upload PDF to Firebase Storage and save document record
+    let storageUrl = ''
+    let storagePath = ''
+    let documentId = ''
+    try {
+      const storageResult = await storageService.uploadFile(buffer, filename, mimeType, 'digitized-pdfs')
+      storageUrl = storageResult.storageUrl
+      storagePath = storageResult.storagePath
+      console.log(`[Pipeline] PDF uploaded to Storage — path: ${storagePath}`)
+
+      documentId = await documentService.saveDocument({
+        filename,
+        storagePath,
+        storageUrl,
+        mimeType,
+        uploadedAt: new Date().toISOString(),
+        processedAt: new Date().toISOString(),
+        crisisId: id,
+        category: finalData.category,
+        severity: finalData.severity,
+        urgency: finalData.urgency,
+        people_affected: finalData.people_affected,
+        location_name: finalData.location_name,
+        summary: finalData.summary,
+        priorityScore: finalData.priorityScore,
+        ocrText: text,
+        ocrConfidence: confidence,
+        processingTimeMs: Date.now() - startTime,
+        status: 'processed',
+      })
+      console.log(`[Pipeline] Document record saved — ID: ${documentId}`)
+    } catch (storageErr: any) {
+      console.warn('[Pipeline] Storage/document save failed (non-fatal):', storageErr.message)
+    }
 
     onStep?.('done', `Pipeline complete. Crisis ID: ${id}`)
 
@@ -387,6 +424,8 @@ export const pipelineService = {
         originalText: text,
         status: 'pending',
         createdAt: new Date(),
+        documentId,
+        storageUrl,
       },
       pipelineMetadata: {
         ocrConfidence: confidence,
