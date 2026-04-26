@@ -3,7 +3,7 @@ import { fetchApi } from './client'
 
 interface IncidentStats {
   activeFieldworkers: number
-  pendingDigitization: number
+  pendingIncidents: number
   highUrgencyTasks: number
   avgResponseTime: number
 }

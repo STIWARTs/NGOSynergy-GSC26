@@ -173,8 +173,8 @@ export default function Dashboard() {
           isLoading={statsLoading}
         />
         <StatCard
-          label="Pending Digitization Queue"
-          value={stats?.pendingDigitization ?? 0}
+          label="Pending Incidents"
+          value={stats?.pendingIncidents ?? 0}
           isLoading={statsLoading}
         />
         <StatCard
