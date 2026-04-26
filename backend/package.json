@@ -12,7 +12,8 @@
     "test": "vitest",
     "ml:train": "python ml/train_model.py",
     "ml:test": "python ml/test_predictions.py",
-    "db:seed": "tsx src/scripts/seed.ts"
+    "db:seed": "tsx src/scripts/seed.ts",
+    "migrate:mock-to-real": "tsx src/scripts/migrateMockToReal.ts"
   },
   "dependencies": {
     "@google-cloud/aiplatform": "^3.15.0",
