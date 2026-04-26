@@ -255,7 +255,7 @@ export const firebaseService = {
   // Stats
   async getStats(): Promise<{
     activeFieldworkers: number
-    pendingDigitization: number
+    pendingIncidents: number
     highUrgencyTasks: number
     avgResponseTime: number
   }> {
@@ -267,18 +267,17 @@ export const firebaseService = {
         .map((doc) => doc.data() as Incident)
         .filter((incident) => incident.status !== 'resolved').length
       
-      const digiSnapshot1 = await db.collection('digitization_queue').where('status', '==', 'pending').get()
-      const digiSnapshot2 = await db.collection('digitization_queue').where('status', '==', 'processing').get()
+      const pendingIncidentsSnapshot = await db.collection('incidents').where('status', '==', 'pending').get()
 
       return {
         activeFieldworkers: volunteersSnapshot.size,
-        pendingDigitization: digiSnapshot1.size + digiSnapshot2.size,
+        pendingIncidents: pendingIncidentsSnapshot.size,
         highUrgencyTasks,
         avgResponseTime: 24,
       }
     }, {
       activeFieldworkers: mockVolunteers.filter(v => v.status === 'active').length,
-      pendingDigitization: mockDigitizationQueue.filter(q => q.status === 'pending' || q.status === 'processing').length,
+      pendingIncidents: mockIncidents.filter(i => i.status === 'pending').length,
       highUrgencyTasks: mockIncidents.filter(i => i.urgencyScore >= 70 && i.status !== 'resolved').length,
       avgResponseTime: 24,
     })
