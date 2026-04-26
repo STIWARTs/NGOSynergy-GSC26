@@ -36,12 +36,12 @@ async function firestoreFallback<T>(
 export const firebaseService = {
   // Incidents
   async getIncident(incidentId: string): Promise<Incident | null> {
-    const db = getDb()
-    if (!db) {
-      return mockIncidents.find((i) => i.id === incidentId) || null
-    }
-    const doc = await db.collection('incidents').doc(incidentId).get()
-    return (doc.data() as Incident) || null
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) return mockIncidents.find((i) => i.id === incidentId) || null
+      const doc = await db.collection('incidents').doc(incidentId).get()
+      return (doc.data() as Incident) || null
+    }, mockIncidents.find((i) => i.id === incidentId) || null)
   },
 
   async createIncident(incident: Partial<Incident>): Promise<string> {
@@ -106,12 +106,12 @@ export const firebaseService = {
 
   // Volunteers
   async getVolunteer(volunteerId: string): Promise<Volunteer | null> {
-    const db = getDb()
-    if (!db) {
-      return mockVolunteers.find((v) => v.id === volunteerId) || null
-    }
-    const doc = await db.collection('volunteers').doc(volunteerId).get()
-    return (doc.data() as Volunteer) || null
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) return mockVolunteers.find((v) => v.id === volunteerId) || null
+      const doc = await db.collection('volunteers').doc(volunteerId).get()
+      return (doc.data() as Volunteer) || null
+    }, mockVolunteers.find((v) => v.id === volunteerId) || null)
   },
 
   async getActiveVolunteers(): Promise<Volunteer[]> {
