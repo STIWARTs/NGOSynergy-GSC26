@@ -12,8 +12,10 @@ import {
 let firestoreAvailable: boolean | null = null
 
 function getDb() {
-  // Force fallback to mock data
-  return null as any
+  if (admin.apps.length === 0) {
+    throw new Error('Firebase Admin is not initialized.')
+  }
+  return admin.firestore() // Connects to real Firebase
 }
 
 async function firestoreFallback<T>(

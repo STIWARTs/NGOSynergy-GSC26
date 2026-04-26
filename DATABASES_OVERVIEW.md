@@ -10,7 +10,7 @@ The Mock Database is a hardcoded set of data designed for rapid frontend develop
 
 * **File Location**: `backend/src/lib/mockData.ts`
 * **Service Handler**: `backend/src/services/firebaseService.ts` (specifically via the `firestoreFallback` wrapper)
-* **Current Status**: **ACTIVE** (Currently forced on via `getDb()` returning `null` in `firebaseService.ts`)
+* **Current Status**: **INACTIVE** (Mock data has been migrated to real Firebase)
 
 ### What It Includes
 The mock database simulates all the core collections needed by the app:
@@ -39,7 +39,7 @@ The Real Database is the production-grade, live cloud database hosted on Google 
 * **Host**: Google Firebase (Project ID: `solutionchallenge-9e89a`)
 * **Initialization Location**: `backend/src/index.ts` (using `firebase-admin`)
 * **Configuration**: `backend/.env` (requires `FIREBASE_PROJECT_ID`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_STORAGE_BUCKET`)
-* **Current Status**: **INACTIVE** (Bypassed)
+* **Current Status**: **ACTIVE** (Primary database after migration)
 
 ### What It Includes
 The real database scales dynamically and contains the actual live data collections:
@@ -55,21 +55,29 @@ The real database scales dynamically and contains the actual live data collectio
 
 ---
 
-## How to Switch Between Databases
+## Current Database Status (Updated)
 
-The application determines which database to use inside `backend/src/services/firebaseService.ts` within the `getDb()` function.
+**As of migration date**: The application is now using the **Real Firebase Database** as the primary data source.
 
-### To use the **Mock Database** (Current setup):
-Ensure `getDb()` returns `null` so the app gracefully falls back to `mockData.ts`.
-```typescript
-// backend/src/services/firebaseService.ts
-function getDb() {
-  return null as any // Forces fallback to mock data
-}
-```
+### Migration Summary:
+- ✅ All mock data (incidents, volunteers, assignments, digitization queue, verifications, global config) has been migrated to real Firebase
+- ✅ Existing Firebase data preserved: `digitized_documents`, `chat_history`, and `digitized-pdfs` storage bucket
+- ✅ Old mock fallback system disabled in `firebaseService.ts`
+- ✅ Application now connects directly to Firebase Firestore
 
-### To use the **Real Firebase Database**:
-Restore `getDb()` to check for the initialized Firebase Admin app and return the real Firestore instance.
+### Migration Script:
+- **Location**: `backend/src/scripts/migrateMockToReal.ts`
+- **Run Command**: `cd backend && npm run migrate:mock-to-real`
+- **Purpose**: One-time migration to transfer mock data to production Firebase
+
+---
+
+## How to Switch Between Databases (Historical Reference)
+
+**Note**: The application is currently configured to use the **Real Firebase Database**. The mock database is no longer actively used but remains available for development/testing if needed.
+
+### To use the **Real Firebase Database** (Current setup):
+The `getDb()` function in `firebaseService.ts` returns the actual Firestore instance:
 ```typescript
 // backend/src/services/firebaseService.ts
 function getDb() {
@@ -79,3 +87,14 @@ function getDb() {
   return admin.firestore() // Connects to real Firebase
 }
 ```
+
+### To use the **Mock Database** (For development/testing only):
+Temporarily modify `getDb()` to return `null` to force fallback to mock data:
+```typescript
+// backend/src/services/firebaseService.ts
+function getDb() {
+  return null as any // Forces fallback to mock data (dev/testing only)
+}
+```
+
+** Important**: The mock database should only be used for local development and testing. The production environment should always use the real Firebase database.
