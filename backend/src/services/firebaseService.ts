@@ -266,17 +266,20 @@ export const firebaseService = {
       const highUrgencyTasks = highUrgencySnapshot.docs
         .map((doc) => doc.data() as Incident)
         .filter((incident) => incident.status !== 'resolved').length
+      
+      const digiSnapshot1 = await db.collection('digitization_queue').where('status', '==', 'pending').get()
+      const digiSnapshot2 = await db.collection('digitization_queue').where('status', '==', 'processing').get()
 
       return {
         activeFieldworkers: volunteersSnapshot.size,
-        pendingDigitization: 0,
+        pendingDigitization: digiSnapshot1.size + digiSnapshot2.size,
         highUrgencyTasks,
         avgResponseTime: 24,
       }
     }, {
-      activeFieldworkers: 0,
-      pendingDigitization: 0,
-      highUrgencyTasks: 0,
+      activeFieldworkers: mockVolunteers.filter(v => v.status === 'active').length,
+      pendingDigitization: mockDigitizationQueue.filter(q => q.status === 'pending' || q.status === 'processing').length,
+      highUrgencyTasks: mockIncidents.filter(i => i.urgencyScore >= 70 && i.status !== 'resolved').length,
       avgResponseTime: 24,
     })
   },
