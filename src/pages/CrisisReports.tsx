@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useIncidents } from '@/hooks/useIncidents'
 import { reportsService } from '@/api/reports'
 import { queryKeys } from '@/lib/queryKeys'
+import { Upload, X, FileText, Image, File } from 'lucide-react'
 
 export default function CrisisReports() {
   const [query, setQuery] = useState('')
@@ -15,6 +16,9 @@ export default function CrisisReports() {
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
   const [affectedCount, setAffectedCount] = useState(0)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
   const { data: incidents = [], isLoading } = useIncidents()
 
@@ -30,6 +34,77 @@ export default function CrisisReports() {
       setAffectedCount(0)
     },
   })
+
+  const submitReportWithFile = useMutation({
+    mutationFn: reportsService.submitWithFile,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.incidents.all })
+      setReporterName('')
+      setDescription('')
+      setPhotoUrl('')
+      setLat('')
+      setLng('')
+      setAffectedCount(0)
+      setSelectedFile(null)
+    },
+  })
+
+  const handleFileSelect = (file: File) => {
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'application/pdf',
+      'text/csv',
+    ]
+    
+    if (!allowedTypes.includes(file.type)) {
+      alert('Unsupported file type. Please upload JPEG, PNG, GIF, WebP, PDF, or CSV files.')
+      return
+    }
+    
+    if (file.size > 20 * 1024 * 1024) {
+      alert('File size must be less than 20MB')
+      return
+    }
+    
+    setSelectedFile(file)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      handleFileSelect(file)
+    }
+  }
+
+  const handleSubmit = () => {
+    if (selectedFile) {
+      submitReportWithFile.mutate({
+        category,
+        severity,
+        coordinates: { lat: Number(lat), lng: Number(lng) },
+        file: selectedFile,
+        photoUrl: photoUrl || undefined,
+        reporterName: reporterName || undefined,
+        description: description || undefined,
+        affectedCount,
+      })
+    } else {
+      submitReport.mutate({
+        category,
+        severity,
+        coordinates: { lat: Number(lat), lng: Number(lng) },
+        photoUrl,
+        reporterName: reporterName || undefined,
+        description: description || undefined,
+        affectedCount,
+      })
+    }
+  }
 
   const filteredIncidents = useMemo(() => {
     return incidents.filter((incident) => {
@@ -96,34 +171,85 @@ export default function CrisisReports() {
             placeholder="Longitude"
             className="bg-base border border-border rounded px-3 py-2 text-sm text-text-primary"
           />
-          <input
-            value={photoUrl}
-            onChange={(e) => setPhotoUrl(e.target.value)}
-            placeholder="Public photo URL"
-            className="md:col-span-2 bg-base border border-border rounded px-3 py-2 text-sm text-text-primary"
-          />
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Incident description"
-            className="md:col-span-2 bg-base border border-border rounded px-3 py-2 text-sm text-text-primary min-h-24"
-          />
         </div>
+
+        {/* File Upload Area */}
+        <div>
+          <label className="block text-xs text-text-muted mb-2 font-medium">
+            Attach File (PDF, Image, or CSV)
+          </label>
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all duration-200 ${
+              dragOver
+                ? 'border-indigo-400 bg-indigo-500/10'
+                : selectedFile
+                ? 'border-green-500/50 bg-green-500/5'
+                : 'border-border hover:border-indigo-500/50 hover:bg-indigo-500/5'
+            }`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.csv"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+            />
+            {selectedFile ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-center gap-2">
+                  {selectedFile.type.includes('image') ? (
+                    <Image className="w-8 h-8 text-green-400" />
+                  ) : selectedFile.type === 'application/pdf' ? (
+                    <FileText className="w-8 h-8 text-green-400" />
+                  ) : (
+                    <File className="w-8 h-8 text-green-400" />
+                  )}
+                </div>
+                <p className="text-sm font-medium text-green-400">{selectedFile.name}</p>
+                <p className="text-xs text-text-muted">
+                  {(selectedFile.size / 1024).toFixed(1)} KB · {selectedFile.type}
+                </p>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSelectedFile(null) }}
+                  className="text-xs text-text-muted hover:text-text-primary transition-colors flex items-center gap-1 mx-auto"
+                >
+                  <X className="w-3 h-3" /> Remove
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Upload className="w-10 h-10 text-text-muted mx-auto opacity-40" />
+                <p className="text-sm text-text-primary font-medium">Drop file or click to browse</p>
+                <p className="text-xs text-text-muted">Supports PDF, JPG, PNG, GIF, WebP, CSV (max 20MB)</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Photo URL (optional if file uploaded) */}
+        <input
+          value={photoUrl}
+          onChange={(e) => setPhotoUrl(e.target.value)}
+          placeholder="Public photo URL (optional if file attached)"
+          className="w-full bg-base border border-border rounded px-3 py-2 text-sm text-text-primary"
+        />
+        
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Incident description"
+          className="w-full bg-base border border-border rounded px-3 py-2 text-sm text-text-primary min-h-24"
+        />
         <button
-          onClick={() =>
-            submitReport.mutate({
-              category,
-              severity,
-              coordinates: { lat: Number(lat), lng: Number(lng) },
-              photoUrl,
-              reporterName: reporterName || undefined,
-              description: description || undefined,
-              affectedCount,
-            })
-          }
+          onClick={handleSubmit}
           disabled={
             submitReport.isPending ||
-            !photoUrl ||
+            submitReportWithFile.isPending ||
+            (!selectedFile && !photoUrl) ||
             !description ||
             !lat ||
             !lng ||
@@ -132,14 +258,14 @@ export default function CrisisReports() {
           }
           className="px-4 py-2 rounded bg-action text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitReport.isPending ? 'Submitting...' : 'Submit Report'}
+          {submitReport.isPending || submitReportWithFile.isPending ? 'Submitting...' : 'Submit Report'}
         </button>
-        {submitReport.isError && (
+        {(submitReport.isError || submitReportWithFile.isError) && (
           <p className="text-xs text-red-500">Failed to submit report. Please check fields and try again.</p>
         )}
-        {submitReport.isSuccess && (
+        {(submitReport.isSuccess || submitReportWithFile.isSuccess) && (
           <p className="text-xs text-green-500">
-            Report submitted. Incident ID: {submitReport.data.incidentId}
+            Report submitted. Incident ID: {submitReport.data?.incidentId || submitReportWithFile.data?.incidentId}
           </p>
         )}
       </div>

@@ -15,6 +15,8 @@ export interface Incident {
     lng: number
   }
   photoUrl?: string
+  fileName?: string
+  fileType?: string
   urgencyScore: number
   timestamp: string
   verified: boolean

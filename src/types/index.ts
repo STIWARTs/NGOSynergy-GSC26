@@ -13,6 +13,8 @@ export interface Incident {
   description: string
   affectedCount: number
   photoUrl?: string
+  fileName?: string
+  fileType?: string
   verified: boolean
   geminiVerified: boolean
 }
