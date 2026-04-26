@@ -14,6 +14,7 @@ import digitizationRouter from './routes/digitization.js'
 import verificationRouter from './routes/verification.js'
 import volunteerRouter from './routes/volunteers.js'
 import crisesRouter from './routes/crises.js'
+import documentsRouter from './routes/documents.js'
 
 dotenv.config()
 
@@ -50,6 +51,7 @@ try {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount as any),
     projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`,
   })
   console.log('Firebase Admin initialized successfully')
 } catch (err) {
@@ -82,6 +84,7 @@ app.use('/api/digitization', digitizationRouter)
 app.use('/api/verification', verificationRouter)
 app.use('/api/volunteers', volunteerRouter)
 app.use('/api/crises', crisesRouter)
+app.use('/api/documents', documentsRouter)
 
 // 404 handler
 app.use((req, res) => {

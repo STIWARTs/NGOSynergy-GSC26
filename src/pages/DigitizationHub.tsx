@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
-import { ScanLine, Zap } from 'lucide-react'
+import { ScanLine, Zap, Library } from 'lucide-react'
 import BatchUpload from '@/components/digitization/BatchUpload'
 import SingleDocument from '@/components/digitization/SingleDocument'
 import HITLVerification from '@/components/digitization/HITLVerification'
 import PipelineUpload from '@/components/digitization/PipelineUpload'
+import DocumentsTable from '@/components/digitization/DocumentsTable'
 import { useDigitizationQueue } from '@/hooks/useDigitization'
 import * as Dialog from '@radix-ui/react-dialog'
 
 export default function DigitizationHub() {
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'single' | 'batch'>('pipeline')
+  const [activeTab, setActiveTab] = useState<'pipeline' | 'library' | 'single' | 'batch'>('pipeline')
   const [selectedItemForVerification, setSelectedItemForVerification] = useState<string | null>(null)
   const { data: queue = [] } = useDigitizationQueue()
 
@@ -20,6 +21,7 @@ export default function DigitizationHub() {
 
   const tabs: { id: typeof activeTab; label: string; icon?: any; badge?: string }[] = [
     { id: 'pipeline', label: 'Full Pipeline', icon: Zap, badge: 'NEW' },
+    { id: 'library', label: 'Documents Library', icon: Library },
     { id: 'batch', label: 'Batch Upload' },
     { id: 'single', label: 'Single Document' },
   ]
@@ -31,7 +33,7 @@ export default function DigitizationHub() {
         <div>
           <h1 className="text-3xl font-mono font-semibold text-text-primary">Digitization Hub</h1>
           <p className="text-sm text-text-muted mt-0.5">
-            Architecture: User Input → Document AI (OCR) → Preprocessing → Gemini JSON → Validate → Firestore
+            Architecture: User Input → Document AI (OCR) → Preprocessing → Gemini JSON → Validate → Firestore + Storage → Chat
           </p>
         </div>
       </div>
@@ -83,6 +85,7 @@ export default function DigitizationHub() {
 
           {/* Tab content */}
           {activeTab === 'pipeline' && <PipelineUpload />}
+          {activeTab === 'library' && <DocumentsTable />}
           {activeTab === 'batch' && (
             <BatchUpload onSelectForVerification={setSelectedItemForVerification} />
           )}
