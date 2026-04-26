@@ -156,8 +156,16 @@ export const aiService = {
 
       return ranked
     } catch (error) {
-      console.error('Vertex AI ranking error:', error)
-      throw error
+      console.error('Vertex AI ranking error, falling back to local weights:', error)
+      return candidates.map((c) => ({
+        ...c,
+        priorityConfidence:
+          (c.skillScore * weights.a +
+            c.proximityScore * weights.b +
+            c.reliabilityScore * weights.c +
+            c.certificationScore * weights.d) *
+          100,
+      })).sort((a, b) => b.priorityConfidence - a.priorityConfidence)
     }
   },
 }

@@ -16,8 +16,8 @@ export const matchingService = {
         throw new Error(`Incident ${incidentId} not found`)
       }
 
-      // Fetch all active volunteers
-      const volunteers = await firebaseService.getActiveVolunteers()
+      // Fetch all volunteers (frontend will handle status filtering)
+      const volunteers = await firebaseService.getAllVolunteers()
       if (volunteers.length === 0) {
         return []
       }
@@ -36,58 +36,28 @@ export const matchingService = {
       // Phase 1.5: Inject proximity scores
       const withProximity = geoService.injectProximityScore(proximateVolunteers)
 
-      // Phase 2: Quick math-based scoring (hardcoded filtering)
-      const config = await firebaseService.getGlobalConfig()
+      // Phase 2: Quick math-based scoring (hardcoded filtering) - COMMENTED OUT
+      // const config = await firebaseService.getGlobalConfig()
+      // ...
+      // Phase 3: AI-powered final ranking - COMMENTED OUT
+      // const aiRanked = await aiService.rankVolunteers(topCandidates, config)
 
-      const quickScored = withProximity.map((v) => {
-        // Calculate component scores
-        const skillScore = matchingService.calculateSkillMatch(v.skills, incident.category)
-        const proximityScore = v.proximityScore || 0.5
-        const reliabilityScore = v.reliabilityScore || 0.5
-        const certificationScore = v.certifications?.length > 0 ? 1 : 0
-
-        // Weighted combination
-        const quickScore =
-          skillScore * config.a +
-          proximityScore * config.b +
-          reliabilityScore * config.c +
-          certificationScore * config.d
-
-        return {
-          id: v.id,
-          name: v.name,
-          email: v.email,
-          distance: v.distance,
-          skillScore,
-          proximityScore,
-          reliabilityScore,
-          certificationScore,
-          skills: v.skills,
-          certifications: v.certifications,
-          reliability: v.reliabilityScore,
-          quickScore,
-        }
-      })
-
-      // Keep top candidates for AI ranking (typically top 20)
-      const topCandidates = quickScored.sort((a, b) => b.quickScore - a.quickScore).slice(0, 20)
-
-      // Phase 3: AI-powered final ranking
-      const aiRanked = await aiService.rankVolunteers(topCandidates, config)
-
-      // Format results
-      const results: MatchResult[] = aiRanked.slice(0, limit).map((v: any) => ({
+      // Format results based ONLY on distance
+      const results: MatchResult[] = proximateVolunteers.map((v: any) => ({
         volunteerId: v.id,
         name: v.name,
-        matchScore: Math.round((v.priorityConfidence || (v.quickScore || 0) * 100) * 10) / 10,
+        matchScore: 100 - (v.distance * 2), // Mock score based purely on distance (closer = higher score)
         skills: v.skills || [],
         distance: v.distance || 0,
-        reliability: v.reliability || v.reliabilityScore || 0,
-        reasoning: matchingService.generateReasoning(v, incident),
-        priorityConfidence: v.priorityConfidence || (v.quickScore || 0) * 100,
+        reliability: v.reliabilityScore || 0,
+        reasoning: `Within radius: ${v.distance} km from incident.`,
+        priorityConfidence: 100 - (v.distance * 2),
       }))
 
-      return results
+      // Sort by distance (closest first)
+      results.sort((a, b) => a.distance - b.distance)
+
+      return results.slice(0, limit)
     } catch (error) {
       console.error('Matching calculation error:', error)
       throw error

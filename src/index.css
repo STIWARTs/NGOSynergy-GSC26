@@ -115,3 +115,31 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Mapbox marker pulse animation */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+}
+
+.incident-marker {
+  transition: transform 0.2s ease;
+}
+
+.incident-marker:hover {
+  transform: scale(1.3);
+}
+
+.volunteer-marker {
+  transition: transform 0.2s ease;
+}
+
+.volunteer-marker:hover {
+  transform: scale(1.4);
+}

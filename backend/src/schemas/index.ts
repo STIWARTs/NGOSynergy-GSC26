@@ -35,7 +35,7 @@ export const DigitizationCommitSchema = z.object({
 
 export const MatchCalculateSchema = z.object({
   incidentId: z.string(),
-  radiusKm: z.number().min(1).max(200).optional(),
+  radiusKm: z.number().min(0.5).max(200).optional(),
   limit: z.number().min(1).max(50).optional(),
 })
 
