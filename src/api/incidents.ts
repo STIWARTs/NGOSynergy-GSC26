@@ -25,4 +25,8 @@ export const incidentService = {
   getStats: async (): Promise<IncidentStats> => {
     return fetchApi<IncidentStats>('GET', '/api/incidents/stats/dashboard')
   },
+
+  updateStatus: async (id: string, status: string): Promise<void> => {
+    return fetchApi<void>('PATCH', `/api/incidents/${id}/status`, { status })
+  },
 }

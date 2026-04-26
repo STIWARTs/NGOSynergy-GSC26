@@ -55,4 +55,16 @@ router.get('/stats/dashboard', authMiddleware, async (req: Request, res: Respons
   }
 })
 
+// Update incident status
+router.patch('/:id/status', authMiddleware, adminOnly, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { status } = req.body
+    await firebaseService.updateIncident(id, { status })
+    res.json({ success: true, id, status })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update incident status' })
+  }
+})
+
 export default router
