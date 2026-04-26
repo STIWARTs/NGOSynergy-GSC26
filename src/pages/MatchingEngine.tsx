@@ -255,7 +255,7 @@ export default function MatchingEngine() {
         const matchSkill = volunteerSkillFilter.length === 0 ? true : volunteerSkillFilter.some(s => volunteer.skills.includes(s))
         const matchStatus = volunteerStatusFilter.length === 0 ? true : volunteerStatusFilter.includes(volunteer.status)
         
-        // Filter by radius if incident is selected
+        // Only filter by radius when radiusIncident is explicitly set (user clicked on incident for radius filtering)
         if (!radiusIncident) return matchSkill && matchStatus
         
         const coords = volunteer.homeCoordinates ?? volunteer.currentCoordinates
@@ -275,7 +275,12 @@ export default function MatchingEngine() {
         
         return matchSkill && matchStatus && distance <= radiusKm
       })
-    : rankedVolunteers
+    : rankedVolunteers.filter((volunteer) => {
+        // When no incident selected, only apply skill/status filters
+        const matchSkill = volunteerSkillFilter.length === 0 ? true : volunteerSkillFilter.some(s => volunteer.skills.includes(s))
+        const matchStatus = volunteerStatusFilter.length === 0 ? true : volunteerStatusFilter.includes(volunteer.status)
+        return matchSkill && matchStatus
+      })
   const displayedRecommendationsWithCoords = useMemo(
     () =>
       displayedRecommendations
@@ -307,26 +312,8 @@ export default function MatchingEngine() {
         ...v,
         pinCoordinates: v.homeCoordinates ?? v.currentCoordinates,
       }))
-      .filter((v) => {
-        // If radius incident is selected, only show volunteers within the radius
-        if (radiusIncident && v.pinCoordinates) {
-          const R = 6371 // Earth's radius in km
-          const dLat = ((v.pinCoordinates.lat - radiusIncident.coordinates.lat) * Math.PI) / 180
-          const dLng = ((v.pinCoordinates.lng - radiusIncident.coordinates.lng) * Math.PI) / 180
-          const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos((radiusIncident.coordinates.lat * Math.PI) / 180) *
-              Math.cos((v.pinCoordinates.lat * Math.PI) / 180) *
-              Math.sin(dLng / 2) *
-              Math.sin(dLng / 2)
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-          const distance = R * c
-          return distance <= radiusKm
-        }
-        return true
-      })
       .filter((v) => !!v.pinCoordinates)
-  }, [volunteers, volunteerSkillFilter, volunteerStatusFilter, radiusIncident, radiusKm])
+  }, [volunteers, volunteerSkillFilter, volunteerStatusFilter])
 
   const recommendedIds = useMemo(() => {
     return new Set(displayedRecommendationsWithCoords.map((v) => v.id))
@@ -425,6 +412,16 @@ export default function MatchingEngine() {
             />
             Show all volunteers
           </label>
+          {selectedIncident && (
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={radiusIncidentId === selectedIncident.id}
+                onChange={(e) => setRadiusIncidentId(e.target.checked ? selectedIncident.id : null)}
+              />
+              Enable radius filter
+            </label>
+          )}
           <div className="flex items-center gap-2">
             <span>Radius</span>
             <input
@@ -464,7 +461,7 @@ export default function MatchingEngine() {
                 onClick={() => {
                   const nextIncidentId = incidentId === incident.id ? '' : incident.id
                   setIncidentId(nextIncidentId)
-                  setRadiusIncidentId(nextIncidentId || null)
+                  // Don't set radiusIncidentId here - let user control radius filtering separately
                 }}
                 className={`w-full text-left border rounded p-3 transition-colors ${
                   selectedIncident?.id === incident.id ? 'border-action bg-base' : 'border-border hover:border-action/50'
@@ -598,7 +595,7 @@ export default function MatchingEngine() {
                         onClick={() => {
                           const nextIncidentId = incidentId === incident.id ? '' : incident.id
                           setIncidentId(nextIncidentId)
-                          setRadiusIncidentId(nextIncidentId || null)
+                          // Don't set radiusIncidentId here - let user control radius filtering separately
                         }}
                       />
                     )
@@ -618,7 +615,7 @@ export default function MatchingEngine() {
                       onClick={() => {
                         const nextIncidentId = incidentId === selectedIncident.id ? '' : selectedIncident.id
                         setIncidentId(nextIncidentId)
-                        setRadiusIncidentId(nextIncidentId || null)
+                        // Don't set radiusIncidentId here - let user control radius filtering separately
                       }}
                     />
                   )}
