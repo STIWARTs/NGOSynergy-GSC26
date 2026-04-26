@@ -412,16 +412,21 @@ export default function MatchingEngine() {
             />
             Show all volunteers
           </label>
-          {selectedIncident && (
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={radiusIncidentId === selectedIncident.id}
-                onChange={(e) => setRadiusIncidentId(e.target.checked ? selectedIncident.id : null)}
-              />
-              Enable radius filter
-            </label>
-          )}
+          <label className={`flex items-center gap-2 ${!selectedIncident && !radiusIncidentId ? 'opacity-50' : ''}`} title={!selectedIncident && !radiusIncidentId ? "Select an incident to enable radius filter" : ""}>
+            <input
+              type="checkbox"
+              disabled={!selectedIncident && !radiusIncidentId}
+              checked={!!radiusIncidentId}
+              onChange={(e) => {
+                if (e.target.checked && selectedIncident) {
+                  setRadiusIncidentId(selectedIncident.id)
+                } else {
+                  setRadiusIncidentId(null)
+                }
+              }}
+            />
+            Enable radius filter
+          </label>
           <div className="flex items-center gap-2">
             <span>Radius</span>
             <input
@@ -461,7 +466,7 @@ export default function MatchingEngine() {
                 onClick={() => {
                   const nextIncidentId = incidentId === incident.id ? '' : incident.id
                   setIncidentId(nextIncidentId)
-                  // Don't set radiusIncidentId here - let user control radius filtering separately
+                  if (radiusIncidentId) setRadiusIncidentId(nextIncidentId ? nextIncidentId : null)
                 }}
                 className={`w-full text-left border rounded p-3 transition-colors ${
                   selectedIncident?.id === incident.id ? 'border-action bg-base' : 'border-border hover:border-action/50'
@@ -572,6 +577,7 @@ export default function MatchingEngine() {
                     strokeColor: '#60A5FA',
                     strokeOpacity: 0.9,
                     strokeWeight: 2,
+                    clickable: false,
                   }}
                 />
               ) : null}
@@ -595,7 +601,7 @@ export default function MatchingEngine() {
                         onClick={() => {
                           const nextIncidentId = incidentId === incident.id ? '' : incident.id
                           setIncidentId(nextIncidentId)
-                          // Don't set radiusIncidentId here - let user control radius filtering separately
+                          if (radiusIncidentId) setRadiusIncidentId(nextIncidentId ? nextIncidentId : null)
                         }}
                       />
                     )
@@ -615,7 +621,7 @@ export default function MatchingEngine() {
                       onClick={() => {
                         const nextIncidentId = incidentId === selectedIncident.id ? '' : selectedIncident.id
                         setIncidentId(nextIncidentId)
-                        // Don't set radiusIncidentId here - let user control radius filtering separately
+                        if (radiusIncidentId) setRadiusIncidentId(nextIncidentId ? nextIncidentId : null)
                       }}
                     />
                   )}
