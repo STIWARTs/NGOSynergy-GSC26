@@ -36,6 +36,8 @@ export interface PipelineResult {
     status: string
     originalText: string
     createdAt: FirebaseFirestore.Timestamp | Date
+    documentId?: string
+    storageUrl?: string
   }
   pipelineMetadata: {
     ocrConfidence: number
@@ -220,7 +222,7 @@ TEXT:
 ${cleanText}`
 
   const response = await axios.post(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
     {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
