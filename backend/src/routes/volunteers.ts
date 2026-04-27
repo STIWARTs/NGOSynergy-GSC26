@@ -6,6 +6,32 @@ import { geoService } from '../services/geoService.js'
 
 const router = Router()
 
+// Get the currently authenticated volunteer's own profile
+router.get('/me', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const uid = req.user!.uid
+    const volunteer = await firebaseService.getVolunteer(uid)
+    if (!volunteer) {
+      // DEV_MODE fallback: return a placeholder so the app doesn't crash
+      return res.json({
+        id: uid,
+        name: 'Volunteer',
+        email: req.user!.email || '',
+        skills: [],
+        status: 'active',
+        reliabilityScore: 0,
+        certifications: [],
+        pastDeployments: 0,
+        avatarInitials: 'V',
+      })
+    }
+    res.json(volunteer)
+  } catch (error) {
+    console.error('Failed to fetch volunteer profile:', error)
+    res.status(500).json({ error: 'Failed to fetch profile' })
+  }
+})
+
 // List volunteers with optional search, status filter, and pagination
 router.get('/', authMiddleware, adminOnly, async (req: Request, res: Response) => {
   try {

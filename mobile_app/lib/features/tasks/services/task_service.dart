@@ -1,18 +1,13 @@
 // features/tasks/services/task_service.dart
 //
 // Service layer for task data access.
+// - Fetches live data from the Express backend via ApiClient.
 // - Business logic (filtering, sorting) lives HERE, not in widgets.
-// - Simulated local data for MVP; replace _allTasks with Firestore calls later.
-// - All public methods return plain List<TaskItem> (no Flutter deps).
+// - Keeps ChangeNotifier so existing ListenableBuilder widgets need no changes.
 
 import 'package:flutter/foundation.dart';
 import '../models/task_item.dart';
-
-// ---------------------------------------------------------------------------
-// Simulated data store – mirrors what Firestore will provide in production.
-// In production: replace this with a stream from FirebaseFirestore.instance
-//               .collection('tasks').snapshots()
-// ---------------------------------------------------------------------------
+import '../../../core/services/api_client.dart';
 
 class TaskService extends ChangeNotifier {
   // Singleton pattern
@@ -24,90 +19,22 @@ class TaskService extends ChangeNotifier {
 
   TaskService._internal();
 
-  final List<TaskItem> _tasks = [
-    TaskItem(
-      id: 'T001',
-      title: 'Emergency insulin delivery',
-      location: 'Sector 12, Relief Camp A',
-      type: TaskType.medical,
-      severity: TaskSeverity.critical,
-      status: TaskStatus.inProgress,
-      assignedTo: 'volunteer_1',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 12)),
-      description:
-          'Patient at relief camp A needs insulin urgently. Contact camp medic on arrival.',
-    ),
-    TaskItem(
-      id: 'T002',
-      title: 'Food distribution – Block 4',
-      location: 'Community Hall, North Zone',
-      type: TaskType.food,
-      severity: TaskSeverity.medium,
-      status: TaskStatus.pending,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 35)),
-      description:
-          'Distribute food packets to approximately 80 displaced families in Block 4.',
-    ),
-    TaskItem(
-      id: 'T003',
-      title: 'Flood evacuation – Zone B',
-      location: 'River Road, Downtown',
-      type: TaskType.disaster,
-      severity: TaskSeverity.high,
-      status: TaskStatus.pending,
-      assignedTo: 'volunteer_2',
-      timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-    ),
-    TaskItem(
-      id: 'T004',
-      title: 'Blanket supply for shelter',
-      location: 'Old School, East Wing',
-      type: TaskType.other,
-      severity: TaskSeverity.low,
-      status: TaskStatus.completed,
-      assignedTo: 'volunteer_1',
-      timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-    ),
-    TaskItem(
-      id: 'T005',
-      title: 'Cardiac emergency – elderly patient',
-      location: 'House 7B, Refugee Camp',
-      type: TaskType.medical,
-      severity: TaskSeverity.critical,
-      status: TaskStatus.pending,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
-      description:
-          'Elderly patient (approx. 70 years) experiencing chest pain. AED may be required.',
-    ),
-    TaskItem(
-      id: 'T006',
-      title: 'Water purification tablets',
-      location: 'South Camp, Water Station',
-      type: TaskType.food,
-      severity: TaskSeverity.high,
-      status: TaskStatus.inProgress,
-      assignedTo: 'volunteer_1',
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-    ),
-    TaskItem(
-      id: 'T007',
-      title: 'Collapsed building rescue',
-      location: 'Market Street, Sector 5',
-      type: TaskType.disaster,
-      severity: TaskSeverity.critical,
-      status: TaskStatus.inProgress,
-      assignedTo: 'volunteer_2',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 48)),
-      description:
-          'Partial collapse reported. At least 3 people trapped on the second floor.',
-    ),
-  ];
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
 
-  List<TaskItem> getAllTasks() => _tasks;
+  List<TaskItem> _tasks = [];
+  bool isLoading = false;
+  String? error;
 
-  List<TaskItem> getTasksForVolunteer(String userId) {
-    return _tasks.where((t) => t.assignedTo == userId).toList();
-  }
+  // ---------------------------------------------------------------------------
+  // Public read accessors
+  // ---------------------------------------------------------------------------
+
+  List<TaskItem> getAllTasks() => List.unmodifiable(_tasks);
+
+  List<TaskItem> getTasksForVolunteer(String userId) =>
+      _tasks.where((t) => t.assignedTo == userId).toList();
 
   List<TaskItem> getTasksForVolunteerByStatus(
     String volunteerId,
@@ -119,22 +46,82 @@ class TaskService extends ChangeNotifier {
   }
 
   int countForVolunteer(String volunteerId, TaskStatus status) =>
-      getTasksForVolunteer(volunteerId).where((t) => t.status == status).length;
+      getTasksForVolunteer(volunteerId)
+          .where((t) => t.status == status)
+          .length;
 
-  void acceptTask(String taskId, String volunteerId) {
-    final index = _tasks.indexWhere((t) => t.id == taskId);
-    if (index != -1) {
-      _tasks[index].status = TaskStatus.inProgress;
-      _tasks[index].assignedTo = volunteerId;
+  // ---------------------------------------------------------------------------
+  // Fetch from backend
+  // ---------------------------------------------------------------------------
+
+  /// Fetches all tasks from the backend. Call on screen init and pull-to-refresh.
+  Future<void> fetchTasks() async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+    try {
+      final data = await ApiClient.get('/api/tasks') as List<dynamic>;
+      _tasks = data
+          .map((j) => TaskItem.fromJson(j as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      error = e.toString();
+      debugPrint('TaskService.fetchTasks error: $e');
+    } finally {
+      isLoading = false;
       notifyListeners();
     }
   }
 
-  void completeTask(String taskId) {
-    final index = _tasks.indexWhere((t) => t.id == taskId);
-    if (index != -1) {
-      _tasks[index].status = TaskStatus.completed;
+  /// Fetches only tasks assigned to a specific volunteer.
+  Future<void> fetchTasksForVolunteer(String volunteerId) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+    try {
+      final data = await ApiClient.get(
+              '/api/tasks?volunteerId=${Uri.encodeComponent(volunteerId)}')
+          as List<dynamic>;
+      _tasks = data
+          .map((j) => TaskItem.fromJson(j as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      error = e.toString();
+      debugPrint('TaskService.fetchTasksForVolunteer error: $e');
+    } finally {
+      isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Write operations — call backend then refresh
+  // ---------------------------------------------------------------------------
+
+  /// Volunteer accepts a pending task. Calls PATCH /api/tasks/:id/accept.
+  Future<void> acceptTask(String taskId, String volunteerId) async {
+    try {
+      await ApiClient.patch(
+        '/api/tasks/$taskId/accept',
+        {'volunteerId': volunteerId},
+      );
+      await fetchTasks();
+    } catch (e) {
+      error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Volunteer marks their in-progress task as complete.
+  Future<void> completeTask(String taskId) async {
+    try {
+      await ApiClient.patch('/api/tasks/$taskId/complete', {});
+      await fetchTasks();
+    } catch (e) {
+      error = e.toString();
+      notifyListeners();
+      rethrow;
     }
   }
 }

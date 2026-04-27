@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'routes/app_routes.dart';
+import 'routes/route_constants.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
+  // Initialize Firebase using the generated firebase_options.dart.
+  // Run `flutterfire configure` to generate this file.
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -85,7 +94,9 @@ class MyApp extends StatelessWidget {
         // ── Scaffold background ────────────────────────────────────────────
         scaffoldBackgroundColor: colorScheme.surface,
       ),
-      initialRoute: AppRoutes.home,
+      initialRoute: FirebaseAuth.instance.currentUser != null
+          ? RouteConstants.home
+          : RouteConstants.login,
       routes: AppRoutes.routes,
     );
   }

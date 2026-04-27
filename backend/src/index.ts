@@ -15,6 +15,7 @@ import verificationRouter from './routes/verification.js'
 import volunteerRouter from './routes/volunteers.js'
 import crisesRouter from './routes/crises.js'
 import documentsRouter from './routes/documents.js'
+import tasksRouter from './routes/tasks.js'
 
 dotenv.config()
 
@@ -63,7 +64,15 @@ const app = express()
 const PORT = process.env.PORT || 8080
 
 // Middleware
-app.use(cors())
+app.use(cors({
+  origin: [
+    'http://localhost:5173',  // Vite dev server
+    'http://localhost:3000',  // Alt web dev
+    'http://10.0.2.2:8080',  // Android emulator → host
+    'http://10.0.2.2:3000',
+  ],
+  credentials: true,
+}))
 app.use(express.json())
 
 // Health check
@@ -85,6 +94,7 @@ app.use('/api/verification', verificationRouter)
 app.use('/api/volunteers', volunteerRouter)
 app.use('/api/crises', crisesRouter)
 app.use('/api/documents', documentsRouter)
+app.use('/api/tasks', tasksRouter)
 
 // 404 handler
 app.use((req, res) => {

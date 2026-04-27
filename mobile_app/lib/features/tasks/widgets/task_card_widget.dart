@@ -11,8 +11,10 @@ import '../screens/task_detail_screen.dart';
 import '../services/task_service.dart';
 import 'task_theme.dart';
 import '../../../routes/route_constants.dart' as route_constants;
+import '../../../core/services/auth_service.dart';
 
-const String _currentUserId = 'volunteer_1';
+// UID is read from FirebaseAuth at call time, not hardcoded.
+String get _currentUserId => AuthService().currentUid ?? '';
 
 // ---------------------------------------------------------------------------
 // TaskCard – primary task list item; tapping navigates to TaskDetailScreen.

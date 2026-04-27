@@ -44,3 +44,11 @@ export const adminOnly = (req: Request, res: Response, next: NextFunction) => {
   }
   next()
 }
+
+// Allows both volunteers and admins to access an endpoint.
+export const volunteerOnly = (req: Request, res: Response, next: NextFunction) => {
+  if (!['admin', 'volunteer'].includes(req.user?.role ?? '')) {
+    return res.status(403).json({ error: 'Volunteer access required' })
+  }
+  next()
+}

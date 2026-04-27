@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/task_item.dart';
 import '../widgets/task_card_widget.dart';
-
 import '../services/task_service.dart';
+import '../../../core/services/auth_service.dart';
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -18,10 +18,12 @@ class TaskListScreen extends StatefulWidget {
 class _TaskListScreenState extends State<TaskListScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  final _taskService = TaskService();
 
   // Filter state
   TaskStatus? _selectedStatus; // null → All
   String _searchQuery = '';
+  bool _fetched = false;
 
   static const _statusFilters = [
     null,
@@ -45,6 +47,15 @@ class _TaskListScreenState extends State<TaskListScreen>
         _selectedStatus = _statusFilters[_tabController.index];
       });
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_fetched) {
+      _fetched = true;
+      _taskService.fetchTasks();
+    }
   }
 
   @override
@@ -77,15 +88,33 @@ class _TaskListScreenState extends State<TaskListScreen>
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: _buildAppBar(),
       body: ListenableBuilder(
-        listenable: TaskService(),
+        listenable: _taskService,
         builder: (context, _) {
           final filtered = _filteredTasks;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Loading / error banner
+              if (_taskService.isLoading)
+                const LinearProgressIndicator()
+              else if (_taskService.error != null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: Text(
+                    'Could not load tasks: ${_taskService.error}',
+                    style: TextStyle(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onErrorContainer,
+                        fontSize: 12),
+                  ),
+                ),
               // 4-chip stats row (reused shared widget)
               _StatsRow(
-                total: TaskService().getAllTasks().length,
+                total: _taskService.getAllTasks().length,
                 pending: _countByStatus(TaskStatus.pending),
                 inProgress: _countByStatus(TaskStatus.inProgress),
                 completed: _countByStatus(TaskStatus.completed),
@@ -99,16 +128,21 @@ class _TaskListScreenState extends State<TaskListScreen>
                 labels: _tabLabels,
               ),
               Expanded(
-                child: filtered.isEmpty
-                    ? const TaskEmptyState(
-                        message: 'No tasks found',
-                        subtitle: 'Try adjusting your search or filters.',
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                        itemCount: filtered.length,
-                        itemBuilder: (ctx, i) => TaskCard(task: filtered[i]),
-                      ),
+                child: RefreshIndicator(
+                  onRefresh: _taskService.fetchTasks,
+                  child: filtered.isEmpty
+                      ? const TaskEmptyState(
+                          message: 'No tasks found',
+                          subtitle: 'Pull down to refresh or adjust filters.',
+                        )
+                      : ListView.builder(
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                          itemCount: filtered.length,
+                          itemBuilder: (ctx, i) =>
+                              TaskCard(task: filtered[i]),
+                        ),
+                ),
               ),
             ],
           );

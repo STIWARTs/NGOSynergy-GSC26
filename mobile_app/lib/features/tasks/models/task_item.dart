@@ -37,6 +37,62 @@ class TaskItem {
   /// Returns true when no volunteer has been assigned yet.
   bool get isUnassigned => assignedTo == null;
 
+  // ---------------------------------------------------------------------------
+  // JSON deserialization — maps backend TaskDTO → TaskItem
+  // ---------------------------------------------------------------------------
+
+  factory TaskItem.fromJson(Map<String, dynamic> json) {
+    return TaskItem(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? 'Untitled Task',
+      location: json['location'] as String? ?? 'Unknown location',
+      type: _parseType(json['category'] as String? ?? ''),
+      severity: _parseSeverity((json['severity'] as num?)?.toInt() ?? 5),
+      status: _parseStatus(json['status'] as String? ?? 'pending'),
+      assignedTo: json['assignedVolunteerId'] as String?,
+      timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
+          DateTime.now(),
+      description: json['description'] as String?,
+    );
+  }
+
+  static TaskType _parseType(String cat) {
+    final c = cat.toLowerCase();
+    if (c.contains('medical') || c.contains('health')) return TaskType.medical;
+    if (c.contains('food') || c.contains('water') || c.contains('supply')) {
+      return TaskType.food;
+    }
+    if (c.contains('flood') ||
+        c.contains('earthquake') ||
+        c.contains('fire') ||
+        c.contains('landslide') ||
+        c.contains('disaster')) {
+      return TaskType.disaster;
+    }
+    return TaskType.other;
+  }
+
+  static TaskSeverity _parseSeverity(int score) {
+    if (score >= 9) return TaskSeverity.critical;
+    if (score >= 7) return TaskSeverity.high;
+    if (score >= 5) return TaskSeverity.medium;
+    return TaskSeverity.low;
+  }
+
+  static TaskStatus _parseStatus(String s) {
+    switch (s) {
+      case 'active':
+      case 'verified':
+        return TaskStatus.inProgress;
+      case 'resolved':
+        return TaskStatus.completed;
+      default:
+        return TaskStatus.pending;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+
   TaskItem copyWith({
     String? id,
     String? title,
@@ -63,6 +119,7 @@ class TaskItem {
     );
   }
 }
+
 
 // ---------------------------------------------------------------------------
 // Display-only extensions (label, icon, color) – no business logic.

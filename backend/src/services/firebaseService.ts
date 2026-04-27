@@ -173,6 +173,15 @@ export const firebaseService = {
     return (doc.data() as Assignment) || null
   },
 
+  async getAllAssignments(): Promise<Assignment[]> {
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) return [...mockAssignments]
+      const snapshot = await db.collection('assignments').get()
+      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Assignment))
+    }, [...mockAssignments])
+  },
+
   async updateAssignment(assignmentId: string, updates: Partial<Assignment>): Promise<void> {
     const db = getDb()
     if (!db) {
