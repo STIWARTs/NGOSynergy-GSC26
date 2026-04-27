@@ -1,5 +1,11 @@
 import axios from 'axios'
 
+async function fetchImageAsBase64(url: string): Promise<string> {
+  const response = await fetch(url)
+  const bytes = (await response.arrayBuffer()) as ArrayBuffer
+  return Buffer.from(bytes).toString('base64')
+}
+
 export const geminiService = {
   async verifyPhotoAuthenticity(imageUrl: string): Promise<{
     verified: boolean
@@ -45,7 +51,7 @@ Respond in JSON format:
                 {
                   inlineData: {
                     mimeType: 'image/jpeg',
-                    data: Buffer.from(await fetch(imageUrl).then((r) => r.arrayBuffer())).toString('base64'),
+                    data: await fetchImageAsBase64(imageUrl),
                   },
                 },
               ],
@@ -116,7 +122,7 @@ Respond in JSON format:
                 {
                   inlineData: {
                     mimeType: 'image/jpeg',
-                    data: Buffer.from(await fetch(photoUrl).then((r) => r.arrayBuffer())).toString('base64'),
+                    data: await fetchImageAsBase64(photoUrl),
                   },
                 },
               ],

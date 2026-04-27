@@ -29,7 +29,7 @@ export default function Sidebar() {
 
   return (
     <div className="w-60 bg-surface border-r border-border flex flex-col h-screen fixed left-0 top-0">
-      <div className="p-6 border-b border-border">
+      <div className="h-16 px-6 border-b border-border flex items-center">
         <div className="font-mono text-xl font-semibold">
           <span className="text-text-primary">NGO</span>
           <span className="text-action"> SYNERGY</span>

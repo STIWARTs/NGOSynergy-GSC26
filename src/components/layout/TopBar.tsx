@@ -14,7 +14,7 @@ export default function TopBar() {
   }, [theme])
 
   return (
-    <div className="h-14 bg-surface border-b border-border flex items-center px-6 gap-4 fixed top-0 left-60 right-0 z-40">
+    <div className="h-16 bg-surface border-b border-border flex items-center px-6 gap-4 fixed top-0 left-60 right-0 z-40">
       <div className="flex-1 relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" size={18} />
         <input
@@ -53,7 +53,7 @@ export default function TopBar() {
             <ChevronDown size={14} className="text-text-muted" />
           </button>
           {menuOpen && (
-            <div className="absolute right-6 top-14 w-44 bg-surface border border-border rounded-md shadow-lg z-50">
+            <div className="absolute right-6 top-16 w-44 bg-surface border border-border rounded-md shadow-lg z-50">
               <button className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-hover flex items-center gap-2">
                 <Settings size={14} />
                 Settings

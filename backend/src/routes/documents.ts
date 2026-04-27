@@ -48,11 +48,52 @@ router.get('/:id/signed-url', authMiddleware, adminOnly, async (req: Request, re
     const doc = await documentService.getDocument(req.params.id)
     if (!doc) return res.status(404).json({ error: 'Document not found' })
 
-    const signedUrl = await storageService.getSignedUrl(doc.storagePath)
-    res.json({ signedUrl, expiresIn: '2 hours' })
+    if (!doc.storagePath || doc.storagePath.trim().length === 0) {
+      if (doc.storageUrl && doc.storageUrl.startsWith('http')) {
+        return res.json({ signedUrl: doc.storageUrl, source: 'storedUrl' })
+      }
+      return res.status(400).json({ error: 'No storage path available for this document' })
+    }
+
+    try {
+      const signedUrl = await storageService.getSignedUrl(doc.storagePath)
+      return res.json({ signedUrl, expiresIn: '2 hours', source: 'signedUrl' })
+    } catch (signErr: any) {
+      if (doc.storageUrl && doc.storageUrl.startsWith('http')) {
+        console.warn('[Documents] Signed URL refresh failed, using stored URL fallback:', signErr?.message)
+        return res.json({ signedUrl: doc.storageUrl, source: 'storedUrl-fallback' })
+      }
+      throw signErr
+    }
   } catch (error: any) {
     console.error('[Documents] Signed URL error:', error.message)
     res.status(500).json({ error: error.message || 'Failed to generate signed URL' })
+  }
+})
+
+/**
+ * GET /api/documents/:id/file
+ * Stream raw document bytes for authenticated preview/download.
+ */
+router.get('/:id/file', authMiddleware, adminOnly, async (req: Request, res: Response) => {
+  try {
+    const doc = await documentService.getDocument(req.params.id)
+    if (!doc) return res.status(404).json({ error: 'Document not found' })
+
+    if (!doc.storagePath || doc.storagePath.trim().length === 0) {
+      return res.status(400).json({ error: 'No storage path available for this document' })
+    }
+
+    const file = await storageService.downloadFile(doc.storagePath)
+    const downloadName = encodeURIComponent(doc.filename || file.filename)
+
+    res.setHeader('Content-Type', file.mimeType || doc.mimeType || 'application/pdf')
+    res.setHeader('Content-Length', file.buffer.length.toString())
+    res.setHeader('Content-Disposition', `inline; filename="${downloadName}"`)
+    res.send(file.buffer)
+  } catch (error: any) {
+    console.error('[Documents] File stream error:', error.message)
+    res.status(500).json({ error: error.message || 'Failed to stream document file' })
   }
 })
 

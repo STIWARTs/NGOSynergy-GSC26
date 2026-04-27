@@ -8,12 +8,17 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  ArrowLeft, FileText, MessageSquare, Send, Loader2, Bot, User,
+  ArrowLeft, FileText, Send, Loader2, Bot, User,
   AlertCircle, Droplets, Heart, Home, LifeBuoy, Activity,
-  Clock, Users, MapPin, TrendingUp, RefreshCw, Maximize2, Minimize2,
+  Clock, Users, MapPin, TrendingUp, Maximize2, Minimize2,
+  ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   Sparkles, ChevronDown, Copy, Check
 } from 'lucide-react'
 import { documentsApi, DigiDocument, ChatMessage } from '@/api/documents'
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
+import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+
+GlobalWorkerOptions.workerSrc = pdfWorkerSrc
 
 // ─── Icons / colors ────────────────────────────────────────────────────────────
 
@@ -99,28 +104,170 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
 
 // ─── PDF Panel ─────────────────────────────────────────────────────────────────
 
+type PdfDoc = Awaited<ReturnType<(typeof getDocument)>['promise']>
+
 function PdfPanel({ doc }: { doc: DigiDocument }) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [pdfDoc, setPdfDoc] = useState<PdfDoc | null>(null)
+  const [pageNumber, setPageNumber] = useState(1)
+  const [numPages, setNumPages] = useState(0)
+  const [zoom, setZoom] = useState(1.2)
+  const [fitToWidth, setFitToWidth] = useState(true)
   const [loadingUrl, setLoadingUrl] = useState(true)
   const [pdfError, setPdfError] = useState<string | null>(null)
+  const [renderingPdf, setRenderingPdf] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const viewerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     setLoadingUrl(true)
     setPdfError(null)
-    // Try stored URL first, fall back to signing
-    if (doc.storageUrl && doc.storageUrl.startsWith('http')) {
-      setPdfUrl(doc.storageUrl)
-      setLoadingUrl(false)
-    } else {
-      documentsApi.getSignedUrl(doc.id)
-        .then((url) => { setPdfUrl(url); setLoadingUrl(false) })
-        .catch((err) => { setPdfError(err.message); setLoadingUrl(false) })
+    setPdfUrl(null)
+    setPdfDoc(null)
+    setPageNumber(1)
+    setNumPages(0)
+
+    let objectUrl: string | null = null
+    let isDisposed = false
+
+    // Most reliable path: authenticated backend file stream -> blob URL.
+    // If it hangs/fails, fallback to signed URL, then to stored URL.
+    ;(async () => {
+      try {
+        const blobUrl = await Promise.race<string>([
+          documentsApi.getFileBlobUrl(doc.id),
+          new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error('Document stream timeout')), 8000)
+          ),
+        ])
+
+        if (isDisposed) {
+          URL.revokeObjectURL(blobUrl)
+          return
+        }
+
+        objectUrl = blobUrl
+        setPdfUrl(blobUrl)
+        setLoadingUrl(false)
+        return
+      } catch {
+        // Continue to URL fallbacks below.
+      }
+
+      try {
+        const signedUrl = await Promise.race<string>([
+          documentsApi.getSignedUrl(doc.id),
+          new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error('Signed URL timeout')), 5000)
+          ),
+        ])
+
+        if (isDisposed) return
+        setPdfUrl(signedUrl)
+        setLoadingUrl(false)
+        return
+      } catch (err) {
+        if (isDisposed) return
+
+        if (doc.storageUrl && doc.storageUrl.startsWith('http')) {
+          setPdfUrl(doc.storageUrl)
+          setLoadingUrl(false)
+          return
+        }
+
+        const message =
+          typeof (err as Error)?.message === 'string'
+            ? (err as Error).message
+            : 'No available file URL for this document.'
+        setPdfError(message)
+        setLoadingUrl(false)
+      }
+    })()
+
+    return () => {
+      isDisposed = true
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+      }
     }
-  }, [doc.id])
+  }, [doc.id, doc.storageUrl])
+
+  useEffect(() => {
+    if (!pdfUrl) return
+
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const loadedPdf = await getDocument(pdfUrl).promise
+        if (cancelled) return
+        setPdfDoc(loadedPdf)
+        setNumPages(loadedPdf.numPages || 1)
+        setPageNumber(1)
+      } catch (err) {
+        if (cancelled) return
+        const message = err instanceof Error ? err.message : 'Failed to load PDF document'
+        setPdfError(message)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [pdfUrl])
+
+  useEffect(() => {
+    if (!pdfDoc || !canvasRef.current) return
+
+    let cancelled = false
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    setRenderingPdf(true)
+
+    ;(async () => {
+      try {
+        const page = await pdfDoc.getPage(pageNumber)
+
+        const baseViewport = page.getViewport({ scale: 1 })
+        const containerWidth = Math.max((viewerRef.current?.clientWidth || baseViewport.width) - 32, 240)
+        const fitScale = Math.max(0.25, containerWidth / baseViewport.width)
+        const scale = fitToWidth ? fitScale : zoom
+        const viewport = page.getViewport({ scale })
+
+        // Render at device pixel ratio for sharper text while preserving CSS size.
+        const dpr = window.devicePixelRatio || 1
+        canvas.width = Math.floor(viewport.width * dpr)
+        canvas.height = Math.floor(viewport.height * dpr)
+        canvas.style.width = `${Math.floor(viewport.width)}px`
+        canvas.style.height = `${Math.floor(viewport.height)}px`
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+        ctx.imageSmoothingEnabled = true
+
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise
+
+        if (cancelled) return
+        setRenderingPdf(false)
+      } catch (err) {
+        if (cancelled) return
+        setRenderingPdf(false)
+        const message = err instanceof Error ? err.message : 'Failed to render PDF'
+        setPdfError(message)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [pdfDoc, pageNumber, zoom, fitToWidth])
+
+  const zoomPercent = Math.round(zoom * 100)
 
   return (
-    <div className={`flex flex-col h-full border-r border-border transition-all ${expanded ? 'w-full' : ''}`}>
+    <div className={`flex flex-col h-full min-h-0 overflow-hidden border-r border-border transition-all ${expanded ? 'w-full' : ''}`}>
       {/* Panel header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-white/[0.02] flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -144,7 +291,7 @@ function PdfPanel({ doc }: { doc: DigiDocument }) {
       </div>
 
       {/* PDF viewer */}
-      <div className="flex-1 relative overflow-hidden bg-neutral-900">
+      <div className="flex-1 min-h-0 relative overflow-hidden bg-neutral-900">
         {loadingUrl && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
@@ -172,13 +319,109 @@ function PdfPanel({ doc }: { doc: DigiDocument }) {
           </div>
         )}
 
+        {!loadingUrl && !pdfError && !pdfUrl && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+            <AlertCircle className="w-10 h-10 text-amber-400 mb-3" />
+            <p className="text-sm font-medium text-text-primary mb-1">No PDF URL available</p>
+            <p className="text-xs text-text-muted max-w-xs">
+              This document record does not contain a valid file URL yet. Re-uploading the file through Full Pipeline should restore preview.
+            </p>
+          </div>
+        )}
+
         {pdfUrl && !loadingUrl && !pdfError && (
-          <iframe
-            src={pdfUrl}
-            className="w-full h-full border-0"
-            title={doc.filename}
-            onError={() => setPdfError('PDF could not be rendered')}
-          />
+          <div className="w-full h-full relative">
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="absolute top-3 right-3 z-10 text-[11px] px-2 py-1 rounded-md bg-black/55 border border-white/20 text-white hover:bg-black/70 transition-colors"
+            >
+              Open PDF in new tab
+            </a>
+
+            {pdfDoc && (
+              <div className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-md bg-black/55 border border-white/20 px-2 py-1 text-white">
+                <button
+                  type="button"
+                  disabled={pageNumber <= 1}
+                  onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+                  className="p-1 rounded hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Previous page"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+
+                <span className="text-[11px] min-w-[72px] text-center">{pageNumber} / {numPages}</span>
+
+                <button
+                  type="button"
+                  disabled={numPages === 0 || pageNumber >= numPages}
+                  onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
+                  className="p-1 rounded hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Next page"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+
+                <span className="w-px h-4 bg-white/20" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFitToWidth(false)
+                    setZoom((z) => Math.max(0.5, z - 0.1))
+                  }}
+                  className="p-1 rounded hover:bg-white/10"
+                  title="Zoom out"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+
+                <span className="text-[11px] min-w-[56px] text-center">
+                  {fitToWidth ? 'Fit' : `${zoomPercent}%`}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFitToWidth(false)
+                    setZoom((z) => Math.min(3, z + 0.1))
+                  }}
+                  className="p-1 rounded hover:bg-white/10"
+                  title="Zoom in"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFitToWidth((prev) => !prev)}
+                  className={`text-[11px] px-2 py-0.5 rounded border ${fitToWidth ? 'bg-indigo-500/30 border-indigo-400/50' : 'bg-transparent border-white/20'}`}
+                  title="Toggle fit to width"
+                >
+                  Fit Width
+                </button>
+              </div>
+            )}
+
+            {renderingPdf && (
+              <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/70 z-10">
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                  <p className="text-xs text-text-muted">Rendering PDF page...</p>
+                </div>
+              </div>
+            )}
+
+            <div ref={viewerRef} className="w-full h-full min-h-0 overflow-auto flex justify-center items-start p-4">
+              <canvas ref={canvasRef} className="max-w-full h-auto rounded border border-border bg-white" />
+            </div>
+
+            <div className="absolute bottom-3 right-3 text-[11px] px-2 py-1 rounded-md bg-black/55 border border-white/20 text-white">
+              Page {pageNumber} of {Math.max(numPages, 1)}
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -297,7 +540,7 @@ function ChatPanel({ doc }: { doc: DigiDocument }) {
   const CatIcon = CATEGORY_ICONS[doc.category] || Activity
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {/* Chat header */}
       <div className="px-4 py-3 border-b border-border bg-white/[0.02] flex-shrink-0">
         <div className="flex items-center gap-2 mb-1">
@@ -319,7 +562,7 @@ function ChatPanel({ doc }: { doc: DigiDocument }) {
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {loadingHistory && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
@@ -389,7 +632,7 @@ function ChatPanel({ doc }: { doc: DigiDocument }) {
       </div>
 
       {/* Input area */}
-      <div className="border-t border-border p-3 flex-shrink-0 bg-white/[0.01]">
+      <div className="sticky bottom-0 border-t border-border p-3 flex-shrink-0 bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80 z-20">
         <div className="flex gap-2 items-end">
           <textarea
             ref={inputRef}
@@ -428,15 +671,16 @@ function ChatPanel({ doc }: { doc: DigiDocument }) {
 interface Props {
   document: DigiDocument
   onBack: () => void
+  fullScreen?: boolean
 }
 
-export default function DocumentViewer({ document: doc, onBack }: Props) {
+export default function DocumentViewer({ document: doc, onBack, fullScreen = false }: Props) {
   const CatIcon = CATEGORY_ICONS[doc.category] || Activity
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 8rem)' }}>
+    <div className={`flex flex-col min-h-0 ${fullScreen ? 'h-full max-h-full' : 'h-[calc(100vh-8rem)] max-h-[calc(100vh-8rem)]'}`}>
       {/* Top bar */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+      <div className={`flex items-center justify-between flex-shrink-0 ${fullScreen ? 'mb-0 px-0 pt-0' : 'mb-4'}`}>
         <button
           onClick={onBack}
           className="flex items-center gap-2 text-sm text-text-muted hover:text-text-primary transition-colors group"
@@ -455,7 +699,7 @@ export default function DocumentViewer({ document: doc, onBack }: Props) {
       </div>
 
       {/* Two-panel layout */}
-      <div className="flex-1 grid grid-cols-2 bg-surface border border-border rounded-xl overflow-hidden min-h-0">
+      <div className={`flex-1 grid grid-cols-2 bg-surface border border-border overflow-hidden min-h-0 ${fullScreen ? 'rounded-none h-full' : 'rounded-xl'}`}>
         {/* Left: PDF */}
         <PdfPanel doc={doc} />
 

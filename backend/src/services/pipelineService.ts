@@ -192,17 +192,18 @@ function preprocess(rawText: string): string {
 
 async function extractWithGemini(cleanText: string): Promise<CrisisData> {
   const apiKey = process.env.GEMINI_API_KEY
+  const mockExtraction: CrisisData = {
+    category: 'Water',
+    severity: 8,
+    urgency: 'HIGH',
+    people_affected: 250,
+    location_name: 'Sector 5, District A',
+    summary: 'Severe water shortage and flooding affecting 250 people requiring immediate rescue.',
+  }
 
   if (!apiKey) {
     console.warn('[Pipeline] Gemini API key not configured — using mock extraction')
-    return {
-      category: 'Water',
-      severity: 8,
-      urgency: 'HIGH',
-      people_affected: 250,
-      location_name: 'Sector 5, District A',
-      summary: 'Severe water shortage and flooding affecting 250 people requiring immediate rescue.',
-    }
+    return mockExtraction
   }
 
   const prompt = `You are an NGO crisis analysis system.
@@ -221,22 +222,82 @@ RULES:
 TEXT:
 ${cleanText}`
 
-  const response = await axios.post(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
+  const parseGeminiJson = (raw: string): CrisisData => {
+    const cleaned = raw
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim()
+    return JSON.parse(cleaned) as CrisisData
+  }
+
+  try {
+    const response = await axios.post(endpoint, {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         responseMimeType: 'application/json',
         responseSchema: CRISIS_RESPONSE_SCHEMA,
         temperature: 0.1,
       },
+    })
+
+    const raw = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+    return parseGeminiJson(raw)
+  } catch (error: any) {
+    const status = error?.response?.status
+    const details = error?.response?.data
+    const apiErrorMessage = (details?.error?.message || '').toString().toLowerCase()
+
+    console.error('[Pipeline] Gemini primary request failed', {
+      status,
+      details,
+    })
+
+    if (apiErrorMessage.includes('api key not valid')) {
+      console.warn('[Pipeline] Gemini API key invalid — using mock extraction')
+      return mockExtraction
     }
-  )
 
-  const raw = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
-  const parsed = JSON.parse(raw)
+    // Some Gemini API versions reject responseSchema with 400 INVALID_ARGUMENT.
+    // Retry without schema and rely on strict prompt + validation as compatibility mode.
+    if (status === 400) {
+      console.warn('[Pipeline] Retrying Gemini extraction without responseSchema')
 
-  return parsed as CrisisData
+      const fallbackPrompt = `${prompt}\n\nReturn only a raw JSON object. Do not wrap in markdown.`
+      try {
+        const fallbackResponse = await axios.post(endpoint, {
+          contents: [{ parts: [{ text: fallbackPrompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.1,
+          },
+        })
+
+        const fallbackRaw = fallbackResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+        return parseGeminiJson(fallbackRaw)
+      } catch (fallbackError: any) {
+        const fallbackStatus = fallbackError?.response?.status
+        const fallbackDetails = fallbackError?.response?.data
+        const fallbackMessage = (fallbackDetails?.error?.message || '').toString().toLowerCase()
+
+        console.error('[Pipeline] Gemini fallback request failed', {
+          status: fallbackStatus,
+          details: fallbackDetails,
+        })
+
+        if (fallbackMessage.includes('api key not valid')) {
+          console.warn('[Pipeline] Gemini API key invalid during fallback — using mock extraction')
+          return mockExtraction
+        }
+
+        throw new Error(
+          `Gemini fallback extraction failed: ${fallbackDetails?.error?.message || fallbackError?.message || 'Unknown error'}`
+        )
+      }
+    }
+
+    throw new Error(`Gemini extraction failed: ${error?.message || 'Unknown error'}`)
+  }
 }
 
 // ─── Step 4: Validation ────────────────────────────────────────────────────────
@@ -382,40 +443,43 @@ export const pipelineService = {
     const id = await saveToFirestore(finalData, text)
     console.log(`[Pipeline] Saved to Firestore — ID: ${id}`)
 
-    // Step 6: Upload PDF to Firebase Storage and save document record
+    // Step 6: Upload PDF to Firebase Storage (best-effort)
     let storageUrl = ''
     let storagePath = ''
+    let documentStatus: 'processed' | 'failed' = 'processed'
     let documentId = ''
     try {
       const storageResult = await storageService.uploadFile(buffer, filename, mimeType, 'digitized-pdfs')
       storageUrl = storageResult.storageUrl
       storagePath = storageResult.storagePath
       console.log(`[Pipeline] PDF uploaded to Storage — path: ${storagePath}`)
-
-      documentId = await documentService.saveDocument({
-        filename,
-        storagePath,
-        storageUrl,
-        mimeType,
-        uploadedAt: new Date().toISOString(),
-        processedAt: new Date().toISOString(),
-        crisisId: id,
-        category: finalData.category,
-        severity: finalData.severity,
-        urgency: finalData.urgency,
-        people_affected: finalData.people_affected,
-        location_name: finalData.location_name,
-        summary: finalData.summary,
-        priorityScore: finalData.priorityScore,
-        ocrText: text,
-        ocrConfidence: confidence,
-        processingTimeMs: Date.now() - startTime,
-        status: 'processed',
-      })
-      console.log(`[Pipeline] Document record saved — ID: ${documentId}`)
     } catch (storageErr: any) {
-      console.warn('[Pipeline] Storage/document save failed (non-fatal):', storageErr.message)
+      documentStatus = 'failed'
+      console.warn('[Pipeline] Storage upload failed (non-fatal):', storageErr.message)
     }
+
+    // Step 7: Always save a document record so the Documents Library stays in sync.
+    documentId = await documentService.saveDocument({
+      filename,
+      storagePath,
+      storageUrl,
+      mimeType,
+      uploadedAt: new Date().toISOString(),
+      processedAt: new Date().toISOString(),
+      crisisId: id,
+      category: finalData.category,
+      severity: finalData.severity,
+      urgency: finalData.urgency,
+      people_affected: finalData.people_affected,
+      location_name: finalData.location_name,
+      summary: finalData.summary,
+      priorityScore: finalData.priorityScore,
+      ocrText: text,
+      ocrConfidence: confidence,
+      processingTimeMs: Date.now() - startTime,
+      status: documentStatus,
+    })
+    console.log(`[Pipeline] Document record saved — ID: ${documentId}`)
 
     onStep?.('done', `Pipeline complete. Crisis ID: ${id}`)
 

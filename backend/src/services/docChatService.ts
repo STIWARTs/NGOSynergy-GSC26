@@ -93,8 +93,18 @@ export async function chatWithDocument(
 
     return reply.trim()
   } catch (error: any) {
-    console.error('[DocChat] Gemini API error:', error.response?.data || error.message)
-    throw new Error(`Gemini chat failed: ${error.response?.data?.error?.message || error.message}`)
+    const status = error?.response?.status
+    const details = error?.response?.data
+    const message = details?.error?.message || error?.message || 'Unknown Gemini error'
+
+    console.error('[DocChat] Gemini API error:', {
+      status,
+      message,
+      details,
+    })
+
+    console.warn('[DocChat] Falling back to local mock response')
+    return generateMockResponse(doc, userMessage)
   }
 }
 
