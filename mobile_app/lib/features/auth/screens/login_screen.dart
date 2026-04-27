@@ -60,6 +60,24 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleGoogleLogin() async {
+    setState(() => _loading = true);
+    try {
+      final cred = await _auth.signInWithGoogle();
+      if (cred != null && mounted) {
+        Navigator.pushReplacementNamed(context, RouteConstants.home);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   String _friendlyError(String code) {
     switch (code) {
       case 'user-not-found':
@@ -192,33 +210,84 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // ── Sign in button ───────────────────────────────────────────
+                // ── Action Button ───────────────────────────────────────────────
                 SizedBox(
                   width: double.infinity,
-                  height: 52,
+                  height: 54,
                   child: FilledButton(
                     onPressed: _loading ? null : _signIn,
                     style: FilledButton.styleFrom(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: _loading
-                        ? SizedBox(
-                            width: 22,
-                            height: 22,
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              color: cs.onPrimary,
+                              color: Colors.white,
                             ),
                           )
                         : const Text(
                             'Sign In',
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // ── Divider ──────────────────────────────────────────────────
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: cs.outlineVariant)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'OR',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurfaceVariant.withAlpha(150),
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: cs.outlineVariant)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // ── Google Sign In ──────────────────────────────────────────
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: OutlinedButton(
+                    onPressed: _loading ? null : _handleGoogleLogin,
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: BorderSide(color: cs.outlineVariant),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.g_mobiledata_rounded, size: 32),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Sign in with Google',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
