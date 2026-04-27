@@ -20,6 +20,7 @@ class TaskItem {
   final DateTime timestamp;
   final int? priority;
   final String? description;
+  final TaskCoordinates coordinates;
 
   TaskItem({
     required this.id,
@@ -32,6 +33,7 @@ class TaskItem {
     required this.timestamp,
     this.priority,
     this.description,
+    required this.coordinates,
   });
 
   /// Returns true when no volunteer has been assigned yet.
@@ -53,6 +55,8 @@ class TaskItem {
       timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
           DateTime.now(),
       description: json['description'] as String?,
+      coordinates: TaskCoordinates.fromJson(
+          json['coordinates'] as Map<String, dynamic>?),
     );
   }
 
@@ -116,6 +120,7 @@ class TaskItem {
       timestamp: timestamp ?? this.timestamp,
       priority: priority ?? this.priority,
       description: description ?? this.description,
+      coordinates: coordinates ?? this.coordinates,
     );
   }
 }
@@ -192,4 +197,18 @@ String taskTimeAgo(DateTime dt) {
   if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
   if (diff.inHours < 24) return '${diff.inHours}h ago';
   return '${diff.inDays}d ago';
+}
+
+class TaskCoordinates {
+  final double lat;
+  final double lng;
+
+  TaskCoordinates({required this.lat, required this.lng});
+
+  factory TaskCoordinates.fromJson(Map<String, dynamic>? json) {
+    return TaskCoordinates(
+      lat: (json?['lat'] as num?)?.toDouble() ?? 0.0,
+      lng: (json?['lng'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
 }

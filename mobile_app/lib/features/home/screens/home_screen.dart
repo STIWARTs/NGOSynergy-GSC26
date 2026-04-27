@@ -85,6 +85,13 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.dashboard_rounded,
               onTap: () => Navigator.pushNamed(context, RouteConstants.tasks),
             ),
+            const SizedBox(height: 14),
+            _NavCard(
+              title: 'Incident Map',
+              subtitle: 'Visualize all tasks on an interactive map',
+              icon: Icons.map_rounded,
+              onTap: () => Navigator.pushNamed(context, RouteConstants.taskMap),
+            ),
             const SizedBox(height: 28),
 
             // ── Secondary Actions ─────────────────────────────────────────────

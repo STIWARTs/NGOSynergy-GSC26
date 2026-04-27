@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../features/tasks/screens/task_list_screen.dart';
 import '../features/tasks/screens/task_detail_screen.dart';
 import '../features/tasks/screens/volunteer_tasks_screen.dart';
+import '../features/tasks/screens/task_map_screen.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/chat/screens/chat_room_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
@@ -14,6 +15,7 @@ class AppRoutes {
   static const String tasks = RouteConstants.tasks;
   static const String taskDetail = RouteConstants.taskDetail;
   static const String volunteerTasks = RouteConstants.volunteerTasks;
+  static const String taskMap = RouteConstants.taskMap;
   static const String chatRoom = RouteConstants.chatRoom;
   static const String profile = RouteConstants.profile;
 
@@ -23,6 +25,7 @@ class AppRoutes {
         tasks: (context) => const TaskListScreen(),
         taskDetail: (context) => const TaskDetailScreen(),
         volunteerTasks: (context) => const VolunteerTasksScreen(),
+        taskMap: (context) => const TaskMapScreen(),
         chatRoom: (context) => const ChatRoomScreen(),
         profile: (context) => const ProfileScreen(),
       };
