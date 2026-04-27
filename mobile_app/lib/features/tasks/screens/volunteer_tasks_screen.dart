@@ -9,12 +9,7 @@ import 'package:flutter/material.dart';
 import '../models/task_item.dart';
 import '../services/task_service.dart';
 import '../widgets/task_card_widget.dart';
-
-// ---------------------------------------------------------------------------
-// Simulated auth – replace with auth provider / FirebaseAuth.instance.currentUser
-// ---------------------------------------------------------------------------
-
-const String _currentUserId = 'volunteer_1';
+import '../../../core/services/auth_service.dart';
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -30,7 +25,9 @@ class VolunteerTasksScreen extends StatefulWidget {
 class _VolunteerTasksScreenState extends State<VolunteerTasksScreen>
     with SingleTickerProviderStateMixin {
   final _taskService = TaskService();
+  final _auth = AuthService();
   late final TabController _tabController;
+  bool _fetched = false;
 
   // Tab configuration: null = All, otherwise filter by status
   static const List<TaskStatus?> _statusFilters = [
@@ -59,6 +56,16 @@ class _VolunteerTasksScreenState extends State<VolunteerTasksScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_fetched) {
+      _fetched = true;
+      final uid = _auth.currentUid ?? '';
+      _taskService.fetchTasksForVolunteer(uid);
+    }
+  }
+
+  @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
@@ -66,7 +73,7 @@ class _VolunteerTasksScreenState extends State<VolunteerTasksScreen>
 
   // Delegate all filtering to the service – no logic in UI.
   List<TaskItem> get _visibleTasks => _taskService.getTasksForVolunteerByStatus(
-        _currentUserId,
+        _auth.currentUid ?? '',
         _selectedStatus,
       );
 
@@ -77,39 +84,63 @@ class _VolunteerTasksScreenState extends State<VolunteerTasksScreen>
       body: ListenableBuilder(
         listenable: _taskService,
         builder: (context, _) {
-          final allMyTasks = _taskService.getTasksForVolunteer(_currentUserId);
+          final uid = _auth.currentUid ?? '';
+          final allMyTasks = _taskService.getTasksForVolunteer(uid);
           final visible = _visibleTasks;
-          
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Loading / error indicator
+              if (_taskService.isLoading)
+                const LinearProgressIndicator()
+              else if (_taskService.error != null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: Text(
+                    'Could not load: ${_taskService.error}',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               // Stats for this volunteer only
               TaskStatRow(
                 total: allMyTasks.length,
                 active: _taskService.countForVolunteer(
-                    _currentUserId, TaskStatus.inProgress),
+                    uid, TaskStatus.inProgress),
                 completed: _taskService.countForVolunteer(
-                    _currentUserId, TaskStatus.completed),
+                    uid, TaskStatus.completed),
               ),
               // Filter tabs
               TaskFilterTabs(
                 controller: _tabController,
                 labels: _tabLabels,
               ),
-              // Task list
+              // Task list with pull-to-refresh
               Expanded(
-                child: visible.isEmpty
-                    ? TaskEmptyState(
-                        message: _selectedStatus == null
-                            ? 'No tasks assigned to you'
-                            : 'No ${_tabLabels[_tabController.index].toLowerCase()} tasks',
-                        subtitle: 'Check back soon or contact your coordinator.',
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-                        itemCount: visible.length,
-                        itemBuilder: (ctx, i) => TaskCard(task: visible[i]),
-                      ),
+                child: RefreshIndicator(
+                  onRefresh: () => _taskService.fetchTasksForVolunteer(uid),
+                  child: visible.isEmpty
+                      ? TaskEmptyState(
+                          message: _selectedStatus == null
+                              ? 'No tasks assigned to you'
+                              : 'No ${_tabLabels[_tabController.index].toLowerCase()} tasks',
+                          subtitle:
+                              'Pull down to refresh or check back soon.',
+                        )
+                      : ListView.builder(
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                          itemCount: visible.length,
+                          itemBuilder: (ctx, i) =>
+                              TaskCard(task: visible[i]),
+                        ),
+                ),
               ),
             ],
           );

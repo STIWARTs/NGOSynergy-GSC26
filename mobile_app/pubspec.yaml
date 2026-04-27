@@ -39,6 +39,9 @@ dependencies:
   google_maps_flutter: ^2.14.2
   flutter_dotenv: ^6.0.0
   url_launcher: ^6.3.2
+  # Firebase — same project as the web admin backend
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +64,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - .env
 
   # To add assets to your application, add an assets section, like this:
   # assets:
