@@ -16,7 +16,7 @@ export default function AppLayout() {
       <Sidebar />
       <div className="flex-1 flex flex-col ml-60">
         <TopBar />
-        <main className="flex-1 overflow-auto mt-14 px-6 py-6">
+        <main className="flex-1 overflow-auto mt-16 px-6 py-6">
           <Routes>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/crisis" element={<CrisisReports />} />

@@ -1,4 +1,4 @@
-import { fetchApi } from './client'
+import { fetchApi, fetchApiBlob } from './client'
 
 export interface DigiDocument {
   id: string
@@ -43,6 +43,11 @@ export const documentsApi = {
   getSignedUrl: async (id: string): Promise<string> => {
     const res = await fetchApi<{ signedUrl: string }>('GET', `/api/documents/${id}/signed-url`)
     return res.signedUrl
+  },
+
+  getFileBlobUrl: async (id: string): Promise<string> => {
+    const blob = await fetchApiBlob('GET', `/api/documents/${id}/file`)
+    return URL.createObjectURL(blob)
   },
 
   getChatHistory: async (id: string): Promise<ChatMessage[]> => {

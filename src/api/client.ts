@@ -78,3 +78,32 @@ export async function fetchApiFormData<T = any>(
 
   return response.json();
 }
+
+export async function fetchApiBlob(
+  method: string,
+  endpoint: string
+): Promise<Blob> {
+  const token = await getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method,
+    headers,
+  });
+
+  if (response.status === 401) {
+    localStorage.removeItem('authToken');
+    window.location.href = '/login';
+    throw new ApiError(401, 'Unauthorized');
+  }
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new ApiError(response.status, errorBody || response.statusText);
+  }
+
+  return response.blob();
+}

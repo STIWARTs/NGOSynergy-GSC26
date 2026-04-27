@@ -65,10 +65,13 @@ export default function DocumentsTable() {
 
   if (selectedDoc) {
     return (
-      <DocumentViewer
-        document={selectedDoc}
-        onBack={() => setSelectedDoc(null)}
-      />
+      <div className="fixed left-60 top-16 right-0 bottom-0 z-30 bg-surface overflow-hidden">
+        <DocumentViewer
+          document={selectedDoc}
+          onBack={() => setSelectedDoc(null)}
+          fullScreen
+        />
+      </div>
     )
   }
 
