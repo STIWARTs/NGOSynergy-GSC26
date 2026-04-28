@@ -1,3 +1,13 @@
+<img width="1333" height="315" alt="gsc2026" src="https://github.com/user-attachments/assets/c7a86eb2-7de8-48c4-8ce0-ea6b8fa7ae1b" />
+<p align="center">
+  <a href="https://youtu.be/-uq6juNzorg">
+    <img src="https://img.shields.io/badge/Demo-Video-red?style=for-the-badge&logo=youtube" />
+  </a>
+  <a href="https://ngosynergy-gsc26.vercel.app/">
+    <img src="https://img.shields.io/badge/Live-Link-blue?style=for-the-badge&logo=github" />
+  </a>
+</p>
+
 # NGO Synergy — Smart Resource Allocation (GSC 2026)
 
 ## Why this directly fits the Problem Statement (PS)
