@@ -31,9 +31,9 @@
             android:name="flutterEmbedding"
             android:value="2" />
         
-        <!-- TODO: Replace with your actual Google Maps API Key from backend/.env -->
+        <!-- Keep secrets out of git; inject real key via local config/CI -->
         <meta-data android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyCcPx_nelNd0XpiLkiTym0hrHOM8-Kkm7s"/>
+            android:value="${GOOGLE_MAPS_API_KEY}"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

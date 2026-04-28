@@ -38,7 +38,11 @@ npm install
 
 ### 2. Configure Environment
 
-Update the `.env` file with your Google Cloud credentials:
+Copy the template and then update the `.env` file with your Google Cloud credentials:
+
+```bash
+cp .env.example .env
+```
 
 ```env
 GOOGLE_CLOUD_PROJECT_ID=your-project-id
