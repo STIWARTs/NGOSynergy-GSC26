@@ -11,32 +11,50 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../routes/route_constants.dart';
 import '../../tasks/services/task_service.dart';
 import '../../tasks/models/task_item.dart';
+import '../../../core/services/auth_service.dart';
 
-// Simulated current user – replace with auth in production.
-const String _currentUserId = 'volunteer_1';
-const String _currentUserName = 'Piyush'; // first name only
+// Auth is now read from FirebaseAuth via AuthService.
+final _authService = AuthService();
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final _taskService = TaskService();
+  bool _fetched = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_fetched) {
+      _fetched = true;
+      _taskService.fetchTasks();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final taskService = TaskService();
+    final uid = _authService.currentUid ?? '';
+    final name = _authService.displayName;
     return Scaffold(
       body: SafeArea(
         child: ListenableBuilder(
-          listenable: taskService,
+          listenable: _taskService,
           builder: (context, _) {
-            final myTasks = taskService.getTasksForVolunteer(_currentUserId);
-            final myActive = taskService.countForVolunteer(_currentUserId, TaskStatus.inProgress);
-            final myCompleted = taskService.countForVolunteer(_currentUserId, TaskStatus.completed);
-            final totalSystemTasks = taskService.getAllTasks().length;
+            final myTasks = _taskService.getTasksForVolunteer(uid);
+            final myActive = _taskService.countForVolunteer(uid, TaskStatus.inProgress);
+            final myCompleted = _taskService.countForVolunteer(uid, TaskStatus.completed);
+            final totalSystemTasks = _taskService.getAllTasks().length;
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
           children: [
             // ── Header ──────────────────────────────────────────────────────
-            _Header(name: _currentUserName),
+            _Header(name: name),
             const SizedBox(height: 24),
 
             // ── Volunteer stats banner ───────────────────────────────────────
@@ -66,6 +84,13 @@ class HomeScreen extends StatelessWidget {
               subtitle: 'Browse all $totalSystemTasks system-wide tasks',
               icon: Icons.dashboard_rounded,
               onTap: () => Navigator.pushNamed(context, RouteConstants.tasks),
+            ),
+            const SizedBox(height: 14),
+            _NavCard(
+              title: 'Incident Map',
+              subtitle: 'Visualize all tasks on an interactive map',
+              icon: Icons.map_rounded,
+              onTap: () => Navigator.pushNamed(context, RouteConstants.taskMap),
             ),
             const SizedBox(height: 28),
 

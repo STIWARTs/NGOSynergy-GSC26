@@ -15,6 +15,7 @@ import verificationRouter from './routes/verification.js'
 import volunteerRouter from './routes/volunteers.js'
 import crisesRouter from './routes/crises.js'
 import documentsRouter from './routes/documents.js'
+import tasksRouter from './routes/tasks.js'
 
 dotenv.config()
 
@@ -24,46 +25,82 @@ const __dirname = dirname(__filename)
 // Robust Firebase private-key normalizer
 function normalizePrivateKey(key: string | undefined): string | undefined {
   if (!key) return undefined
-  // 1. If the key was JSON-stringified (has literal \\n), parse it
-  if (key.startsWith('"') && key.endsWith('"')) {
-    try {
-      const parsed = JSON.parse(key)
-      if (typeof parsed === 'string') return parsed
-    } catch {
-      // ignore — fall through
-    }
+  
+  // Remove outer quotes if present
+  let normalized = key.trim()
+  if (normalized.startsWith('"') && normalized.endsWith('"')) {
+    normalized = normalized.substring(1, normalized.length - 1)
   }
-  // 2. Replace literal escaped newlines (\n) with real newlines
-  return key.replace(/\\n/g, '\n')
+  
+  // Replace literal \n with real newlines
+  normalized = normalized.replace(/\\n/g, '\n')
+  
+  // Ensure it starts and ends correctly
+  if (!normalized.includes('-----BEGIN PRIVATE KEY-----')) {
+    normalized = `-----BEGIN PRIVATE KEY-----\n${normalized}`
+  }
+  if (!normalized.includes('-----END PRIVATE KEY-----')) {
+    normalized = `${normalized}\n-----END PRIVATE KEY-----`
+  }
+  
+  return normalized
 }
 
 // Initialize Firebase Admin
 try {
   const rawKey = process.env.FIREBASE_PRIVATE_KEY
   const privateKey = normalizePrivateKey(rawKey)
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
+
+  console.log('Firebase Config Check:')
+  console.log(`- Project ID: ${projectId}`)
+  console.log(`- Client Email: ${clientEmail}`)
+  console.log(`- Private Key Present: ${!!privateKey}`)
+  if (privateKey) {
+    console.log(`- Private Key Start: ${privateKey.substring(0, 40)}...`)
+    console.log(`- Private Key End: ...${privateKey.substring(privateKey.length - 40)}`)
+    console.log(`- Private Key Length: ${privateKey.length}`)
+  }
+
+  if (!projectId || !privateKey || !clientEmail) {
+    const missing = []
+    if (!projectId) missing.push('FIREBASE_PROJECT_ID')
+    if (!privateKey) missing.push('FIREBASE_PRIVATE_KEY')
+    if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL')
+    throw new Error(`Missing required Firebase Admin credentials: ${missing.join(', ')}`)
+  }
 
   const serviceAccount = {
-    projectId: process.env.FIREBASE_PROJECT_ID,
+    projectId,
     privateKey,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    clientEmail,
   }
 
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount as any),
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`,
+    projectId,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${projectId}.firebasestorage.app`,
   })
   console.log('Firebase Admin initialized successfully')
 } catch (err) {
   console.warn('Firebase Admin initialization failed — running in mock mode')
-  console.warn((err as Error).message)
+  console.warn('Reason:', (err as Error).message)
 }
 
 const app = express()
 const PORT = process.env.PORT || 8080
 
 // Middleware
-app.use(cors())
+app.use(cors({
+  origin: [
+    'http://localhost:5173',  // Vite dev server
+    'http://localhost:3000',  // Alt web dev
+    'http://10.0.2.2:8080',  // Android emulator → host
+    'http://10.0.2.2:3000',
+  ],
+  credentials: true,
+}))
 app.use(express.json())
 
 // Health check
@@ -85,6 +122,7 @@ app.use('/api/verification', verificationRouter)
 app.use('/api/volunteers', volunteerRouter)
 app.use('/api/crises', crisesRouter)
 app.use('/api/documents', documentsRouter)
+app.use('/api/tasks', tasksRouter)
 
 // 404 handler
 app.use((req, res) => {

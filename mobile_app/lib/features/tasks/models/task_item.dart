@@ -20,6 +20,7 @@ class TaskItem {
   final DateTime timestamp;
   final int? priority;
   final String? description;
+  final TaskCoordinates coordinates;
 
   TaskItem({
     required this.id,
@@ -32,10 +33,69 @@ class TaskItem {
     required this.timestamp,
     this.priority,
     this.description,
+    required this.coordinates,
   });
 
   /// Returns true when no volunteer has been assigned yet.
   bool get isUnassigned => assignedTo == null;
+
+  // ---------------------------------------------------------------------------
+  // JSON deserialization — maps backend TaskDTO → TaskItem
+  // ---------------------------------------------------------------------------
+
+  factory TaskItem.fromJson(Map<String, dynamic> json) {
+    return TaskItem(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? 'Untitled Task',
+      location: json['location'] as String? ?? 'Unknown location',
+      type: _parseType(json['category'] as String? ?? ''),
+      severity: _parseSeverity((json['severity'] as num?)?.toInt() ?? 5),
+      status: _parseStatus(json['status'] as String? ?? 'pending'),
+      assignedTo: json['assignedVolunteerId'] as String?,
+      timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
+          DateTime.now(),
+      description: json['description'] as String?,
+      coordinates: TaskCoordinates.fromJson(
+          json['coordinates'] as Map<String, dynamic>?),
+    );
+  }
+
+  static TaskType _parseType(String cat) {
+    final c = cat.toLowerCase();
+    if (c.contains('medical') || c.contains('health')) return TaskType.medical;
+    if (c.contains('food') || c.contains('water') || c.contains('supply')) {
+      return TaskType.food;
+    }
+    if (c.contains('flood') ||
+        c.contains('earthquake') ||
+        c.contains('fire') ||
+        c.contains('landslide') ||
+        c.contains('disaster')) {
+      return TaskType.disaster;
+    }
+    return TaskType.other;
+  }
+
+  static TaskSeverity _parseSeverity(int score) {
+    if (score >= 9) return TaskSeverity.critical;
+    if (score >= 7) return TaskSeverity.high;
+    if (score >= 5) return TaskSeverity.medium;
+    return TaskSeverity.low;
+  }
+
+  static TaskStatus _parseStatus(String s) {
+    switch (s) {
+      case 'active':
+      case 'verified':
+        return TaskStatus.inProgress;
+      case 'resolved':
+        return TaskStatus.completed;
+      default:
+        return TaskStatus.pending;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
 
   TaskItem copyWith({
     String? id,
@@ -60,9 +120,11 @@ class TaskItem {
       timestamp: timestamp ?? this.timestamp,
       priority: priority ?? this.priority,
       description: description ?? this.description,
+      coordinates: coordinates ?? this.coordinates,
     );
   }
 }
+
 
 // ---------------------------------------------------------------------------
 // Display-only extensions (label, icon, color) – no business logic.
@@ -135,4 +197,18 @@ String taskTimeAgo(DateTime dt) {
   if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
   if (diff.inHours < 24) return '${diff.inHours}h ago';
   return '${diff.inDays}d ago';
+}
+
+class TaskCoordinates {
+  final double lat;
+  final double lng;
+
+  TaskCoordinates({required this.lat, required this.lng});
+
+  factory TaskCoordinates.fromJson(Map<String, dynamic>? json) {
+    return TaskCoordinates(
+      lat: (json?['lat'] as num?)?.toDouble() ?? 0.0,
+      lng: (json?['lng'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
 }
