@@ -60,6 +60,8 @@ Deep technical overview: see `Idea.md`.
 ```bash
 npm install
 npm --prefix backend install
+cp .env.example .env
+cp backend/.env.example backend/.env
 npm run dev:all
 ```
 
@@ -72,11 +74,11 @@ npm run dev:all
 - For a full end-to-end run, configure Firebase Admin + API keys in `backend/.env` (copy from `backend/.env.example`).
 
 ### 3) Run the mobile app (optional)
-Create `mobile_app/.env` with:
-```env
-API_BASE_URL=http://10.0.2.2:8080/api
+Copy the mobile env template:
+```bash
+cp mobile_app/.env.example mobile_app/.env
 ```
-(`10.0.2.2` is Android emulator → host loopback. Use your machine IP for a physical device.)
+`mobile_app/.env.example` uses `10.0.2.2` (Android emulator → host loopback). Use your machine IP for a physical device.
 
 Then:
 ```bash
