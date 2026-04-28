@@ -34,13 +34,7 @@ BACKEND.md
 INTEGRATION_REPORT.md
 SETUP_GUIDE.md
 # Firebase Service Account Keys
-*.json
-!package.json
-!package-lock.json
-!tsconfig.json
-!backend/package.json
-!backend/package-lock.json
-!backend/tsconfig.json
 solutionchallenge-9e89a-firebase-adminsdk-fbsvc-ea0cd36d71.json
+solutionchallenge-9e89a-firebase-adminsdk-fbsvc-f3387f2c43.json
 TROUBLESHOOTING_LOG.md
 mockdata.md
