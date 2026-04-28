@@ -21,12 +21,12 @@ export default function VerificationCenter() {
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? '')
   const [rejectReason, setRejectReason] = useState('Insufficient evidence')
   const [open, setOpen] = useState(false)
-  const { data: queue = [] } = useVerificationQueue()
+  const { data: queue } = useVerificationQueue()
   const verifyMutation = useVerifyReport()
   const rejectMutation = useRejectReport()
 
   useEffect(() => {
-    setItems(queue)
+    if (queue) setItems(queue)
   }, [queue])
 
   useEffect(() => {
