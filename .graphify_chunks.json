@@ -1,0 +1,41 @@
+[
+  [
+    "App-Web Integration.md",
+    "BACKEND.MD",
+    "DATABASES_OVERVIEW.md",
+    "index.html",
+    "INTEGRATION_REPORT.md",
+    "mockdata.md",
+    "overview.md",
+    "PIPELINE_IMPLEMENTATION.md",
+    "PrioritizationSystem.md",
+    "QUICK_REFERENCE.md",
+    "README.md",
+    "TROUBLESHOOTING_LOG.md",
+    "backend\\API.md",
+    "backend\\BACKEND_BUILD_INDEX.md",
+    "backend\\BACKEND_SUMMARY.md",
+    "backend\\GOOGLE_SETUP.md",
+    "backend\\README.md",
+    "backend\\Data Digitization Pipeline\\implementation.md",
+    "backend\\Data Digitization Pipeline\\PRO_PRIORITY_FORMULA.md",
+    "backend\\Data Digitization Pipeline\\README.md",
+    "backend\\Data Digitization Pipeline\\TEST_RESULTS.md",
+    "backend\\ml\\ML_PROCESS.md"
+  ],
+  [
+    "mobile_app\\android\\app\\src\\main\\res\\mipmap-hdpi\\ic_launcher.png"
+  ],
+  [
+    "mobile_app\\android\\app\\src\\main\\res\\mipmap-mdpi\\ic_launcher.png"
+  ],
+  [
+    "mobile_app\\android\\app\\src\\main\\res\\mipmap-xhdpi\\ic_launcher.png"
+  ],
+  [
+    "mobile_app\\android\\app\\src\\main\\res\\mipmap-xxhdpi\\ic_launcher.png"
+  ],
+  [
+    "mobile_app\\android\\app\\src\\main\\res\\mipmap-xxxhdpi\\ic_launcher.png"
+  ]
+]
