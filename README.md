@@ -1,129 +1,93 @@
-# NGO Synergy Admin Dashboard
+<img width="1333" height="315" alt="gsc2026" src="https://github.com/user-attachments/assets/c7a86eb2-7de8-48c4-8ce0-ea6b8fa7ae1b" />
+<p align="center">
+  <a href="https://youtu.be/-uq6juNzorg">
+    <img src="https://img.shields.io/badge/Demo-Video-red?style=for-the-badge&logo=youtube" />
+  </a>
+  <a href="https://ngosynergy-gsc26.vercel.app/">
+    <img src="https://img.shields.io/badge/Live-Link-blue?style=for-the-badge&logo=github" />
+  </a>
+</p>
 
-A mission-critical humanitarian coordination hub connecting field volunteers to verified crisis reports using AI-powered matching and document digitization.
+# NGO Synergy — Smart Resource Allocation (GSC 2026)
 
-## Tech Stack
+## Why this directly fits the Problem Statement (PS)
+The PS asks for a system that (1) **gathers scattered community information**, (2) **clearly shows the most urgent local needs**, and (3) **quickly matches volunteers** to the right tasks and locations.
 
-- **Framework**: React 19 + Vite
-- **Styling**: Tailwind CSS 4.0
-- **Components**: Shadcn UI (Radix UI primitives)
-- **Icons**: Lucide React
-- **Data Fetching**: TanStack Query (React Query)
-- **Tables**: TanStack Table
-- **Notifications**: Sonner
-- **Routing**: React Router v6
-- **State Management**: React Context + TanStack Query
+NGO Synergy addresses this end-to-end:
+- **Collect & unify** paper surveys/field reports (images, PDFs, free text) into one structured dataset.
+- **Prioritize with clarity** using validated fields + an explainable priority score.
+- **Match & dispatch fast** using skills + availability + distance/ETA, then deliver assignments to volunteers.
 
-## Project Structure
+## What this project is
+NGO Synergy is a unified crisis-response platform with:
+- **Web Admin Console** (React) for triage, verification, matching, and operations.
+- **Mobile Volunteer App** (Flutter) for sign-in, map context, and task execution.
+- **One Backend API server** (Node/Express) that secures access, runs AI pipelines, and persists operational data.
 
-```
-src/
-  api/                  # API service modules
-  components/
-    layout/            # Sidebar, TopBar, AppLayout
-    ui/                # Shadcn-generated components
-    shared/            # Reusable widgets
-  pages/                # Route pages
-  lib/                  # Utilities, constants, mock data
-  hooks/                # Custom React hooks
-  context/              # React Context providers
-  types/                # TypeScript interfaces
-  index.css             # Global styles
-  App.tsx               # Main app component
-  main.tsx              # Entry point
-```
+Deep technical overview: see `Idea.md`.
 
-## Design System
+## Key capabilities (judge-friendly)
+- **Digitization**: Document AI OCR → Gemini schema-enforced JSON → validation → Firestore.
+- **Verification Center**: AI-assisted checks + human-in-the-loop approval.
+- **Matching Engine**: ranks volunteers and considers proximity/ETA for practical dispatch.
+- **Maps**: web + mobile map views for incidents and coordination.
+- **Document Library + Q&A**: store evidence and “chat” for summarization and retrieval.
 
-**Theme**: Mission Control (Dark Mode)
+## Google / Firebase services used
+- **Firebase Authentication** (+ Google Sign-In)
+- **Firebase Admin SDK** (server-side token verification, roles)
+- **Cloud Firestore** (operational database)
+- **Cloud Storage / Firebase Storage bucket** (documents/evidence)
+- **Document AI** (OCR for PDFs/images)
+- **Gemini API** (structured extraction, verification, document Q&A)
+- **Vertex AI Prediction** (optional hosted ranking)
+- **Google Maps Platform** (Maps JS API, Maps SDK for Flutter, Distance Matrix, Geocoding/Reverse Geocoding)
 
-### Colors
-- Base: `#0F172A` (Slate 900)
-- Surface: `#1E293B` (Slate 800)
-- Border: `#334155` (Slate 700)
-- Action: `#2563EB` (Blue 600)
-- Urgency: `#DC2626` (Red 600)
-- Success: `#16A34A` (Green 600)
+## Repo layout
+- `src/` — Web Admin (React + Vite)
+- `backend/` — Backend API (Express + TypeScript)
+- `mobile_app/` — Flutter volunteer app
+- `backend/Data Digitization Pipeline/` — standalone runnable pipeline demo (OCR → Gemini → validation → Firestore)
 
-### Typography
-- Display: IBM Plex Mono
-- Body: Inter
-
-### Rules
-- No emojis
-- No rounded-full buttons (use rounded-md)
-- Skeleton loaders on all data-fetching components
-
-## Getting Started
+## Quickstart (local demo)
 
 ### Prerequisites
 - Node.js 18+
-- npm or yarn
+- (Optional) Flutter SDK for `mobile_app/`
+- (Optional) Python 3.x for the backend ML fallback scripts
 
-### Installation
-
+### 1) Start web + backend
 ```bash
 npm install
+npm --prefix backend install
+npm run dev:all
 ```
 
-### Development
+- Web: http://localhost:5173
+- Backend: http://localhost:8080 (health: `/health`)
+- Dev convenience: Vite proxies `/api` → `http://localhost:8080`
 
+### 2) Auth notes (for judges)
+- The backend supports a **development bypass**: set `DEV_MODE=true` in `backend/.env` to skip token verification.
+- For a full end-to-end run, configure Firebase Admin + API keys in `backend/.env` (copy from `backend/.env.example`).
+
+### 3) Run the mobile app (optional)
+Create `mobile_app/.env` with:
+```env
+API_BASE_URL=http://10.0.2.2:8080/api
+```
+(`10.0.2.2` is Android emulator → host loopback. Use your machine IP for a physical device.)
+
+Then:
 ```bash
-npm run dev
+cd mobile_app
+flutter pub get
+flutter run
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
-
-### Build
-
-```bash
-npm run build
-```
-
-### Preview
-
-```bash
-npm run preview
-```
-
-## Pages
-
-- **Dashboard** (`/dashboard`) - Command Center with heat-map and live incident feed
-- **Crisis Reports** (`/crisis`) - All reported incidents
-- **Matching Engine** (`/matching`) - Vertex AI volunteer-to-incident matching
-- **Volunteer Directory** (`/volunteers`) - Data table of available volunteers
-- **Digitization Hub** (`/digitization`) - Document AI processing for field surveys
-- **Verification Center** (`/verification`) - Gemini Vision verification of reports
-- **Communication Hub** (`/communication`) - Admin-to-volunteer coordination
-- **AI Config** (`/ai-config`) - Tune AI matching weights and urgency multipliers
-
-## Authentication
-
-Demo login page at `/login`. Use any email and password to authenticate.
-
-## Mock Data
-
-All components use mock data from `src/lib/mockData.ts`. To integrate with a real backend, update the API service files in `src/api/`.
-
-## Features
-
-- Real-time incident map with heatmap layer
-- AI-powered volunteer matching with reasoning explanations
-- Document AI integration for field survey digitization
-- Gemini Vision verification for community reports
-- Human-in-the-loop verification workflows
-- Multi-language support (through volunteers)
-- Government coordination features
-
-## Future Phases
-
-1. Backend API integration (Node.js/Express)
-2. Google Maps API integration
-3. Google Vertex AI integration
-4. Document AI integration
-5. Firebase Cloud Messaging for volunteer notifications
-6. Real-time WebSocket updates
+## Scripts
+- Root: `npm run dev` (web), `npm run dev:all` (web + backend)
+- Backend: `npm --prefix backend run dev`
 
 ## License
-
-Internal Use Only - NGO Synergy
+Internal use (hackathon prototype)
