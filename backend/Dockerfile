@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install Python 3 and scikit-learn dependencies
 RUN apk add --no-cache python3 py3-pip \
-    && pip3 install --no-cache-dir scikit-learn pandas numpy joblib
+    && pip3 install --no-cache-dir --break-system-packages scikit-learn pandas numpy joblib
 
 # Copy package files
 COPY package*.json ./
