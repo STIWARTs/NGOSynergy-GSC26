@@ -73,7 +73,6 @@ function resolveServiceAccountJsonPath(): string | undefined {
 
 // Initialize Firebase Admin
 try {
-  const jsonPath = resolveServiceAccountJsonPath()
   let projectId =
     process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT
   let clientEmail = process.env.FIREBASE_CLIENT_EMAIL
@@ -81,48 +80,74 @@ try {
   const storageBucketFromProject = (id: string) =>
     process.env.FIREBASE_STORAGE_BUCKET || `${id}.firebasestorage.app`
 
-  if (jsonPath) {
-    const sa = JSON.parse(readFileSync(jsonPath, 'utf8')) as {
-      project_id?: string
-      client_email?: string
+  // Option A: Check for FIREBASE_CREDENTIALS_JSON (Render/production via env var)
+  if (process.env.FIREBASE_CREDENTIALS_JSON) {
+    try {
+      const credentials = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON) as {
+        project_id?: string
+        client_email?: string
+      }
+      if (!credentials.project_id) {
+        throw new Error('Parsed credentials JSON missing project_id')
+      }
+      projectId ||= credentials.project_id
+      clientEmail ||= credentials.client_email
+      admin.initializeApp({
+        credential: admin.credential.cert(credentials),
+        projectId,
+        storageBucket: storageBucketFromProject(projectId),
+      })
+      console.log('Firebase Admin initialized from FIREBASE_CREDENTIALS_JSON environment variable (Render/Production mode)')
+    } catch (parseErr) {
+      throw new Error(`Failed to parse FIREBASE_CREDENTIALS_JSON: ${(parseErr as Error).message}`)
     }
-    if (!sa.project_id) {
-      throw new Error('Service account JSON missing project_id')
-    }
-    projectId ||= sa.project_id
-    clientEmail ||= sa.client_email
-    admin.initializeApp({
-      credential: admin.credential.cert(jsonPath),
-      projectId,
-      storageBucket: storageBucketFromProject(projectId),
-    })
-    console.log('Firebase Admin initialized from service account file')
   } else {
-    const rawKey = process.env.FIREBASE_PRIVATE_KEY
-    const privateKey = normalizePrivateKey(rawKey)
+    // Option B: Check for file path
+    const jsonPath = resolveServiceAccountJsonPath()
+    if (jsonPath) {
+      const sa = JSON.parse(readFileSync(jsonPath, 'utf8')) as {
+        project_id?: string
+        client_email?: string
+      }
+      if (!sa.project_id) {
+        throw new Error('Service account JSON missing project_id')
+      }
+      projectId ||= sa.project_id
+      clientEmail ||= sa.client_email
+      admin.initializeApp({
+        credential: admin.credential.cert(jsonPath),
+        projectId,
+        storageBucket: storageBucketFromProject(projectId),
+      })
+      console.log('Firebase Admin initialized from service account file')
+    } else {
+      // Option C: Fall back to individual env vars (FIREBASE_PRIVATE_KEY + FIREBASE_CLIENT_EMAIL)
+      const rawKey = process.env.FIREBASE_PRIVATE_KEY
+      const privateKey = normalizePrivateKey(rawKey)
 
-    console.log('Firebase Config Check (.env credentials):')
-    console.log(`- Project ID: ${projectId || '(missing)'}`)
-    console.log(`- Client Email: ${clientEmail || '(missing)'}`)
-    console.log(`- Private Key PEM length: ${privateKey?.length ?? 0}`)
+      console.log('Firebase Config Check (.env credentials):')
+      console.log(`- Project ID: ${projectId || '(missing)'}`)
+      console.log(`- Client Email: ${clientEmail || '(missing)'}`)
+      console.log(`- Private Key PEM length: ${privateKey?.length ?? 0}`)
 
-    if (!projectId || !privateKey || !clientEmail) {
-      const missing: string[] = []
-      if (!projectId) missing.push('FIREBASE_PROJECT_ID')
-      if (!privateKey) missing.push('FIREBASE_PRIVATE_KEY (valid PEM)')
-      if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL')
-      throw new Error(
-        `Missing required Firebase Admin credentials: ${missing.join(', ')}. ` +
-          'Tip: download the service-account JSON from Firebase Console and set GOOGLE_APPLICATION_CREDENTIALS.'
-      )
+      if (!projectId || !privateKey || !clientEmail) {
+        const missing: string[] = []
+        if (!projectId) missing.push('FIREBASE_PROJECT_ID')
+        if (!privateKey) missing.push('FIREBASE_PRIVATE_KEY (valid PEM)')
+        if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL')
+        throw new Error(
+          `Missing required Firebase Admin credentials: ${missing.join(', ')}. ` +
+            'Tip: download the service-account JSON from Firebase Console and set GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_CREDENTIALS_JSON.'
+        )
+      }
+
+      admin.initializeApp({
+        credential: admin.credential.cert({ projectId, privateKey, clientEmail }),
+        projectId,
+        storageBucket: storageBucketFromProject(projectId),
+      })
+      console.log('Firebase Admin initialized from environment variables')
     }
-
-    admin.initializeApp({
-      credential: admin.credential.cert({ projectId, privateKey, clientEmail }),
-      projectId,
-      storageBucket: storageBucketFromProject(projectId),
-    })
-    console.log('Firebase Admin initialized from environment variables')
   }
 } catch (err) {
   console.warn('Firebase Admin initialization failed — running in mock mode')
