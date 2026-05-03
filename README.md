@@ -91,5 +91,15 @@ flutter run
 - Root: `npm run dev` (web), `npm run dev:all` (web + backend)
 - Backend: `npm --prefix backend run dev`
 
+<br/>
+
+<sup>
+NOTE: 
+<br/>
+This project was developed using Antigravity as an AI-assisted development environment.
+<br/>
+Cursor was used only for generating the Graphify knowledge base (code indexing and navigation), not for application logic.
+</sup>
+
 ## License
 Internal use (hackathon prototype)
