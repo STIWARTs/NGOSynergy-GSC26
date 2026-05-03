@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { 
-  Send, Paperclip, AlertTriangle, Search, Filter, 
+import {
+  Send, Paperclip, AlertTriangle, Search,
   User, Hash, Radio, Phone, Video, MoreVertical, CheckCircle2,
   MapPin, Clock
 } from 'lucide-react';
@@ -271,7 +271,7 @@ export default function CommunicationHub() {
               </span>
             </div>
 
-            {activeConversation.messages.map((msg, idx) => (
+            {activeConversation.messages.map((msg) => (
               <div 
                 key={msg.id} 
                 className={clsx(

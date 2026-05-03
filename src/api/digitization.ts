@@ -19,6 +19,7 @@ export const digitizationService = {
     return [{
       id: `doc-${Date.now()}`,
       filename: response.filename || 'Uploaded Document',
+      imageUrl: response.imageUrl || '',
       status: 'pending',
       uploadedAt: new Date(),
       source,

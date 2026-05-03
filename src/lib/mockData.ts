@@ -425,13 +425,6 @@ export const DEFAULT_URGENCY_MULTIPLIERS = {
 }
 
 const incidentCategories = ['Flood', 'Earthquake', 'Fire', 'Landslide', 'Medical Emergency', 'Infrastructure Damage']
-const volunteerSkillSets = [
-  ['Medical', 'First Aid'],
-  ['Search & Rescue', 'Navigation'],
-  ['Logistics', 'Coordination'],
-  ['Engineering', 'Infrastructure'],
-  ['Counseling', 'Community Outreach'],
-]
 
 while (mockIncidents.length < 20) {
   const idx = mockIncidents.length + 1

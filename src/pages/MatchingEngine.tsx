@@ -153,7 +153,7 @@ export default function MatchingEngine() {
     () => highPriorityIncidents.find((incident) => incident.id === incidentId) ?? null,
     [highPriorityIncidents, incidentId]
   )
-  const { data: suggestedMatches = [] } = useMatchResults(selectedIncident?.id ?? '', weights, { radiusKm, limit: topN })
+  useMatchResults(selectedIncident?.id ?? '', weights, { radiusKm, limit: topN })
   const deployMutation = useDeployMatch()
 
   const rankedVolunteers = useMemo(() => {
@@ -284,15 +284,12 @@ export default function MatchingEngine() {
   const displayedRecommendationsWithCoords = useMemo(
     () =>
       displayedRecommendations
-        .map((volunteer) => {
-          const volunteerId = volunteer.id
-          return {
-            ...volunteer,
-            homeCoordinates: volunteer.homeCoordinates ?? volunteer.currentCoordinates,
-            status: volunteer.status,
-            fullSkills: volunteer.skills,
-          }
-        })
+        .map((volunteer) => ({
+          ...volunteer,
+          homeCoordinates: volunteer.homeCoordinates ?? volunteer.currentCoordinates,
+          status: volunteer.status,
+          fullSkills: volunteer.skills,
+        }))
         .filter((v) => {
           const matchSkill = volunteerSkillFilter.length === 0 ? true : volunteerSkillFilter.some(s => v.fullSkills.includes(s))
           const matchStatus = volunteerStatusFilter.length === 0 ? true : volunteerStatusFilter.includes(v.status || '')
