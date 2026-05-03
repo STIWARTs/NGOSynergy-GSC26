@@ -8,17 +8,17 @@ RUN apk add --no-cache python3 py3-pip \
     && pip3 install --no-cache-dir scikit-learn pandas numpy joblib
 
 # Copy package files
-COPY backend/package*.json ./
+COPY package*.json ./
 
 # Install dependencies
 RUN npm ci --only=production
 
 # Copy source code
-COPY backend/src ./src
-COPY backend/ml ./ml
+COPY src ./src
+COPY ml ./ml
 
-# Copy ML model if it exists
-COPY backend/model.pkl ./model.pkl 2>/dev/null || true
+# Copy ML model if it exists (optional - fail silently if not present)
+RUN if [ -f model.pkl ]; then cp model.pkl ./model.pkl; fi || true
 
 # Compile TypeScript
 RUN npm run build
