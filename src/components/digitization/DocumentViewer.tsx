@@ -1,6 +1,6 @@
 /**
  * DocumentViewer — Split-panel component
- * Left panel:  PDF viewer (iframe / object embed using signed URL)
+ * Left panel: PDF viewer (bytes via authenticated API → pdf.js, avoids GCS CORS from localhost)
  * Right panel: Persistent Gemini AI chat about the document
  *
  * Chat history is loaded from backend on open and persisted on every message.
@@ -14,6 +14,7 @@ import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   Sparkles, ChevronDown, Copy, Check
 } from 'lucide-react'
+import { fetchApiBlob, ApiError } from '@/api/client'
 import { documentsApi, DigiDocument, ChatMessage } from '@/api/documents'
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -46,7 +47,9 @@ const SUGGESTED_QUESTIONS = [
 ]
 
 function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
+  const ms = typeof dateStr === 'string' ? new Date(dateStr).getTime() : NaN
+  if (!Number.isFinite(ms)) return '—'
+  const diff = Date.now() - ms
   const mins = Math.floor(diff / 60000)
   if (mins < 60) return `${mins}m ago`
   const hrs = Math.floor(mins / 60)
@@ -107,7 +110,8 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
 type PdfDoc = Awaited<ReturnType<(typeof getDocument)>['promise']>
 
 function PdfPanel({ doc }: { doc: DigiDocument }) {
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  /** Blob URL used only for "Open PDF in new tab" (never pass raw GCS URLs to pdf.js — CORS fails on localhost). */
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
   const [pdfDoc, setPdfDoc] = useState<PdfDoc | null>(null)
   const [pageNumber, setPageNumber] = useState(1)
   const [numPages, setNumPages] = useState(0)
@@ -121,101 +125,66 @@ function PdfPanel({ doc }: { doc: DigiDocument }) {
   const viewerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
+    let disposed = false
+    let revokedUrl: string | null = null
+    let loadedPdf: PdfDoc | null = null
+
     setLoadingUrl(true)
     setPdfError(null)
-    setPdfUrl(null)
+    setPdfBlobUrl(null)
     setPdfDoc(null)
     setPageNumber(1)
     setNumPages(0)
 
-    let objectUrl: string | null = null
-    let isDisposed = false
-
-    // Most reliable path: authenticated backend file stream -> blob URL.
-    // If it hangs/fails, fallback to signed URL, then to stored URL.
     ;(async () => {
       try {
-        const blobUrl = await Promise.race<string>([
-          documentsApi.getFileBlobUrl(doc.id),
-          new Promise<string>((_, reject) =>
-            setTimeout(() => reject(new Error('Document stream timeout')), 8000)
-          ),
-        ])
+        const blob = await fetchApiBlob('GET', `/api/documents/${doc.id}/file`)
+        if (blob.size === 0) {
+          throw new Error('Received an empty PDF from the API.')
+        }
+        revokedUrl = URL.createObjectURL(blob)
+        const data = new Uint8Array(await blob.arrayBuffer())
+        loadedPdf = await getDocument({ data }).promise
 
-        if (isDisposed) {
-          URL.revokeObjectURL(blobUrl)
+        if (disposed) {
+          URL.revokeObjectURL(revokedUrl)
+          revokedUrl = null
+          void loadedPdf.destroy()
+          loadedPdf = null
           return
         }
 
-        objectUrl = blobUrl
-        setPdfUrl(blobUrl)
-        setLoadingUrl(false)
-        return
-      } catch {
-        // Continue to URL fallbacks below.
-      }
-
-      try {
-        const signedUrl = await Promise.race<string>([
-          documentsApi.getSignedUrl(doc.id),
-          new Promise<string>((_, reject) =>
-            setTimeout(() => reject(new Error('Signed URL timeout')), 5000)
-          ),
-        ])
-
-        if (isDisposed) return
-        setPdfUrl(signedUrl)
-        setLoadingUrl(false)
-        return
-      } catch (err) {
-        if (isDisposed) return
-
-        if (doc.storageUrl && doc.storageUrl.startsWith('http')) {
-          setPdfUrl(doc.storageUrl)
-          setLoadingUrl(false)
-          return
-        }
-
-        const message =
-          typeof (err as Error)?.message === 'string'
-            ? (err as Error).message
-            : 'No available file URL for this document.'
-        setPdfError(message)
-        setLoadingUrl(false)
-      }
-    })()
-
-    return () => {
-      isDisposed = true
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl)
-      }
-    }
-  }, [doc.id, doc.storageUrl])
-
-  useEffect(() => {
-    if (!pdfUrl) return
-
-    let cancelled = false
-
-    ;(async () => {
-      try {
-        const loadedPdf = await getDocument(pdfUrl).promise
-        if (cancelled) return
+        setPdfBlobUrl(revokedUrl)
         setPdfDoc(loadedPdf)
         setNumPages(loadedPdf.numPages || 1)
         setPageNumber(1)
       } catch (err) {
-        if (cancelled) return
-        const message = err instanceof Error ? err.message : 'Failed to load PDF document'
-        setPdfError(message)
+        if (!disposed && revokedUrl) {
+          URL.revokeObjectURL(revokedUrl)
+          revokedUrl = null
+        }
+        if (!disposed) {
+          let message = 'Could not load this document.'
+          if (err instanceof ApiError && err.status === 401) {
+            message = 'Session expired — sign in again to load documents.'
+          } else if (err instanceof ApiError) {
+            message = `Document load failed (HTTP ${err.status}). Open this page after logging in, or verify the file exists in Storage.`
+          } else if (err instanceof Error) {
+            message = err.message
+          }
+          setPdfError(message)
+        }
+      } finally {
+        if (!disposed) setLoadingUrl(false)
       }
     })()
 
     return () => {
-      cancelled = true
+      disposed = true
+      if (revokedUrl) URL.revokeObjectURL(revokedUrl)
+      void loadedPdf?.destroy()
     }
-  }, [pdfUrl])
+  }, [doc.id])
 
   useEffect(() => {
     if (!pdfDoc || !canvasRef.current) return
@@ -306,7 +275,7 @@ function PdfPanel({ doc }: { doc: DigiDocument }) {
             <AlertCircle className="w-10 h-10 text-amber-400 mb-3" />
             <p className="text-sm font-medium text-text-primary mb-1">PDF preview unavailable</p>
             <p className="text-xs text-text-muted mb-4 max-w-xs">
-              Firebase Storage URL could not be loaded. This may be because storage is not configured, or the signed URL has expired.
+              Loading uses your signed-in session via the API. If login expired, sign in again. If Storage permissions are missing, configure the Firebase Admin service account role for Storage Object Viewer.
             </p>
             <div className="bg-white/5 border border-border rounded-lg p-3 w-full max-w-sm text-left">
               <p className="text-[10px] text-text-muted font-mono mb-1">Stored path:</p>
@@ -319,26 +288,28 @@ function PdfPanel({ doc }: { doc: DigiDocument }) {
           </div>
         )}
 
-        {!loadingUrl && !pdfError && !pdfUrl && (
+        {!loadingUrl && !pdfError && !pdfDoc && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
             <AlertCircle className="w-10 h-10 text-amber-400 mb-3" />
-            <p className="text-sm font-medium text-text-primary mb-1">No PDF URL available</p>
+            <p className="text-sm font-medium text-text-primary mb-1">Unable to resolve PDF viewer</p>
             <p className="text-xs text-text-muted max-w-xs">
-              This document record does not contain a valid file URL yet. Re-uploading the file through Full Pipeline should restore preview.
+              Retry opening the document, or confirm the uploaded file appears in Firebase Storage under the displayed path.
             </p>
           </div>
         )}
 
-        {pdfUrl && !loadingUrl && !pdfError && (
+        {pdfDoc && !loadingUrl && !pdfError && (
           <div className="w-full h-full relative">
-            <a
-              href={pdfUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="absolute top-3 right-3 z-10 text-[11px] px-2 py-1 rounded-md bg-black/55 border border-white/20 text-white hover:bg-black/70 transition-colors"
-            >
-              Open PDF in new tab
-            </a>
+            {pdfBlobUrl ? (
+              <a
+                href={pdfBlobUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="absolute top-3 right-3 z-10 text-[11px] px-2 py-1 rounded-md bg-black/55 border border-white/20 text-white hover:bg-black/70 transition-colors"
+              >
+                Open PDF in new tab
+              </a>
+            ) : null}
 
             {pdfDoc && (
               <div className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-md bg-black/55 border border-white/20 px-2 py-1 text-white">

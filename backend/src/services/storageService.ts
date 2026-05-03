@@ -4,7 +4,12 @@
  */
 
 import admin from 'firebase-admin'
+import { existsSync, readFileSync } from 'fs'
+import { basename, dirname, join } from 'path'
+import { fileURLToPath } from 'url'
 import { v4 as uuid } from 'uuid'
+
+const __svcDir = dirname(fileURLToPath(import.meta.url))
 
 function getBucketCandidates(): string[] {
   const projectId = process.env.FIREBASE_PROJECT_ID
@@ -16,6 +21,31 @@ function getBucketCandidates(): string[] {
   ].filter(Boolean) as string[]
 
   return [...new Set(candidates)]
+}
+
+let cachedDemoPdf: Buffer | null = null
+
+function loadDemoPdfBuffer(): Buffer {
+  if (cachedDemoPdf) return cachedDemoPdf
+  const candidates = [join(__svcDir, '..', 'lib', 'demo-sample.pdf')]
+  for (const p of candidates) {
+    if (existsSync(p)) {
+      cachedDemoPdf = readFileSync(p)
+      return cachedDemoPdf
+    }
+  }
+  console.warn('[Storage] demo-sample.pdf missing; using tiny PDF placeholder.')
+  cachedDemoPdf = Buffer.from(
+    `%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]>>endobj\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n100\n%%EOF\n`,
+    'utf8'
+  )
+  return cachedDemoPdf
+}
+
+/** Demo / offline paths that should never hit public GCS in the browser. */
+function shouldUseEmbeddedDemoPdf(storagePath: string): boolean {
+  const p = (storagePath || '').toLowerCase()
+  return !!p.trim() && (p.includes('/mock/') || p.includes('mock-doc-'))
 }
 
 async function withResolvedBucket<T>(
@@ -49,10 +79,12 @@ export const storageService = {
     folder = 'digitized-pdfs'
   ): Promise<{ storageUrl: string; storagePath: string }> {
     if (admin.apps.length === 0) {
-      console.warn('[Storage] Firebase not initialized — returning mock URL')
+      const ext = filename.split('.').pop() || 'pdf'
+      const storagePath = `${folder}/${uuid()}.${ext}`
+      console.warn('[Storage] Firebase not initialized — local placeholder path (empty storageUrl)')
       return {
-        storageUrl: `https://storage.googleapis.com/mock/${folder}/${filename}`,
-        storagePath: `${folder}/${filename}`,
+        storageUrl: '',
+        storagePath,
       }
     }
 
@@ -86,8 +118,10 @@ export const storageService = {
    * Generate a fresh signed URL for an existing file in storage.
    */
   async getSignedUrl(storagePath: string): Promise<string> {
-    if (admin.apps.length === 0) {
-      return `https://storage.googleapis.com/mock/${storagePath}`
+    if (admin.apps.length === 0 || shouldUseEmbeddedDemoPdf(storagePath)) {
+      throw new Error(
+        'Signed GCS URLs are unavailable for demo/offline placeholders — use GET /api/documents/:id/file'
+      )
     }
 
     return withResolvedBucket(async (bucket) => {
@@ -102,10 +136,17 @@ export const storageService = {
 
   /**
    * Download a file from Firebase Storage and return bytes + metadata.
+   * Uses bundled demo-sample.pdf when Firebase is off or for mock-demo storage paths.
    */
   async downloadFile(storagePath: string): Promise<{ buffer: Buffer; mimeType: string; filename: string }> {
-    if (admin.apps.length === 0) {
-      throw new Error('Firebase not initialized')
+    const filename = basename(storagePath || 'document.pdf')
+
+    if (admin.apps.length === 0 || shouldUseEmbeddedDemoPdf(storagePath)) {
+      return {
+        buffer: loadDemoPdfBuffer(),
+        mimeType: 'application/pdf',
+        filename,
+      }
     }
 
     return withResolvedBucket(async (bucket) => {
@@ -121,7 +162,7 @@ export const storageService = {
       return {
         buffer,
         mimeType: metadata.contentType || 'application/pdf',
-        filename: storagePath.split('/').pop() || 'document.pdf',
+        filename,
       }
     })
   },

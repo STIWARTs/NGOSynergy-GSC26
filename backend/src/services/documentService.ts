@@ -5,6 +5,7 @@
  */
 
 import admin from 'firebase-admin'
+import type { DocumentData } from 'firebase-admin/firestore'
 
 export interface DigiDocument {
   id: string
@@ -38,6 +39,30 @@ export interface ChatMessage {
 
 const COLLECTION = 'digitized_documents'
 
+/** Normalize Firestore Timestamps for JSON + frontend `Date` parsing (avoids NaN in UI). */
+function firestoreTimeToIso(v: unknown): string {
+  if (typeof v === 'string' && v.trim()) return v
+  const t = v as { toDate?: () => Date; seconds?: number; _seconds?: number }
+  if (t && typeof t.toDate === 'function') return t.toDate().toISOString()
+  const sec = t?.seconds ?? t?._seconds
+  if (typeof sec === 'number') return new Date(sec * 1000).toISOString()
+  return ''
+}
+
+function materializeDigiDocument(docId: string, data: DocumentData): DigiDocument {
+  const processed =
+    typeof data.processedAt === 'string' && data.processedAt.trim()
+      ? data.processedAt
+      : firestoreTimeToIso(data.processedAt) || ''
+
+  return {
+    ...(data as object),
+    id: docId,
+    uploadedAt: firestoreTimeToIso(data.uploadedAt) || new Date().toISOString(),
+    processedAt: processed || new Date().toISOString(),
+  } as DigiDocument
+}
+
 export const documentService = {
   /**
    * Save a digitized document record after full pipeline processing.
@@ -59,29 +84,41 @@ export const documentService = {
    * Get all documents, sorted by uploadedAt descending.
    */
   async getAllDocuments(): Promise<DigiDocument[]> {
+    const mocks = getMockDocuments()
     if (admin.apps.length === 0) {
-      return getMockDocuments()
+      return mocks
     }
-    const db = admin.firestore()
-    const snapshot = await db
-      .collection(COLLECTION)
-      .orderBy('uploadedAt', 'desc')
-      .limit(100)
-      .get()
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as DigiDocument))
+    try {
+      const db = admin.firestore()
+      const snapshot = await db
+        .collection(COLLECTION)
+        .orderBy('uploadedAt', 'desc')
+        .limit(100)
+        .get()
+      return snapshot.docs.map((d) => materializeDigiDocument(d.id, d.data()))
+    } catch (err) {
+      console.warn('[DocumentService] getAllDocuments fallback:', (err as Error).message)
+      return mocks
+    }
   },
 
   /**
    * Get a single document by ID.
    */
   async getDocument(docId: string): Promise<DigiDocument | null> {
+    const mockMatch = getMockDocuments().find((d) => d.id === docId) || null
     if (admin.apps.length === 0) {
-      return getMockDocuments().find((d) => d.id === docId) || null
+      return mockMatch
     }
-    const db = admin.firestore()
-    const doc = await db.collection(COLLECTION).doc(docId).get()
-    if (!doc.exists) return null
-    return { id: doc.id, ...doc.data() } as DigiDocument
+    try {
+      const db = admin.firestore()
+      const doc = await db.collection(COLLECTION).doc(docId).get()
+      if (doc.exists) return materializeDigiDocument(doc.id, doc.data()!)
+      return mockMatch
+    } catch (err) {
+      console.warn('[DocumentService] getDocument fallback:', (err as Error).message)
+      return mockMatch
+    }
   },
 
   /**

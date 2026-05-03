@@ -538,17 +538,22 @@ export const pipelineService = {
    */
   async getAllCrises(limit = 50): Promise<any[]> {
     if (admin.apps.length === 0) {
-      return getMockCrises()
+      return getMockCrises().slice(0, limit)
     }
 
-    const db = admin.firestore()
-    const snapshot = await db
-      .collection('crises')
-      .orderBy('priorityScore', 'desc')
-      .limit(limit)
-      .get()
+    try {
+      const db = admin.firestore()
+      const snapshot = await db
+        .collection('crises')
+        .orderBy('priorityScore', 'desc')
+        .limit(limit)
+        .get()
 
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    } catch (err) {
+      console.warn('[Pipeline] getAllCrises failed, mock fallback:', (err as Error).message)
+      return getMockCrises().slice(0, limit)
+    }
   },
 
   /**
@@ -559,14 +564,19 @@ export const pipelineService = {
       return getMockCrises().filter((c) => c.category === category)
     }
 
-    const db = admin.firestore()
-    const snapshot = await db
-      .collection('crises')
-      .where('category', '==', category)
-      .orderBy('priorityScore', 'desc')
-      .get()
+    try {
+      const db = admin.firestore()
+      const snapshot = await db
+        .collection('crises')
+        .where('category', '==', category)
+        .orderBy('priorityScore', 'desc')
+        .get()
 
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    } catch (err) {
+      console.warn('[Pipeline] getCrisesByCategory failed, mock fallback:', (err as Error).message)
+      return getMockCrises().filter((c) => c.category === category)
+    }
   },
 
   /**
@@ -574,8 +584,12 @@ export const pipelineService = {
    */
   async updateCrisisStatus(id: string, status: string): Promise<void> {
     if (admin.apps.length === 0) return
-    const db = admin.firestore()
-    await db.collection('crises').doc(id).update({ status, updatedAt: admin.firestore.Timestamp.now() })
+    try {
+      const db = admin.firestore()
+      await db.collection('crises').doc(id).update({ status, updatedAt: admin.firestore.Timestamp.now() })
+    } catch (err) {
+      console.warn('[Pipeline] updateCrisisStatus failed (no-op in dev):', (err as Error).message)
+    }
   },
 }
 

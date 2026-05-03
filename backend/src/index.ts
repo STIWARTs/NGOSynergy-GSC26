@@ -2,8 +2,9 @@ import express from 'express'
 import cors from 'cors'
 import admin from 'firebase-admin'
 import dotenv from 'dotenv'
+import { existsSync, readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
-import { dirname } from 'path'
+import { dirname, resolve as resolvePath } from 'path'
 
 // Routes
 import incidentsRouter from './routes/incidents.js'
@@ -22,67 +23,107 @@ dotenv.config()
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-// Robust Firebase private-key normalizer
+/** PEM normalizer for env-based service account keys (dotenv quoting / Windows pastes). */
 function normalizePrivateKey(key: string | undefined): string | undefined {
-  if (!key) return undefined
-  
-  // Remove outer quotes if present
-  let normalized = key.trim()
-  if (normalized.startsWith('"') && normalized.endsWith('"')) {
-    normalized = normalized.substring(1, normalized.length - 1)
+  if (!key || !key.trim()) return undefined
+
+  let normalized = key.trim().replace(/^\uFEFF/, '').replace(/\r\n/g, '\n')
+
+  for (let i = 0; i < 4; i++) {
+    const t = normalized.trim()
+    const dq = t.startsWith('"') && t.endsWith('"')
+    const sq = t.startsWith("'") && t.endsWith("'")
+    if (dq || sq) {
+      normalized = t.slice(1, -1).trim().replace(/\r\n/g, '\n')
+      continue
+    }
+    break
   }
-  
-  // Replace literal \n with real newlines
-  normalized = normalized.replace(/\\n/g, '\n')
-  
-  // Ensure it starts and ends correctly
-  if (!normalized.includes('-----BEGIN PRIVATE KEY-----')) {
-    normalized = `-----BEGIN PRIVATE KEY-----\n${normalized}`
+
+  // Strip stray leading/trailing ASCII or curly quotes (common broken .env pastes)
+  normalized = normalized
+    .replace(/^[\u201C\u201D\u201E\u201F"'`]+/, '')
+    .replace(/[\u201C\u201D\u201E\u201F"'`]+$/, '')
+    .trim()
+    .replace(/\\n/g, '\n')
+
+  const pemHeader = /-----BEGIN [A-Z0-9 -]+PRIVATE KEY-----/
+  if (!pemHeader.test(normalized)) {
+    console.warn('[Firebase] FIREBASE_PRIVATE_KEY is set but missing a PEM header — use GOOGLE_APPLICATION_CREDENTIALS JSON or fix .env quoting.')
+    return undefined
   }
-  if (!normalized.includes('-----END PRIVATE KEY-----')) {
-    normalized = `${normalized}\n-----END PRIVATE KEY-----`
-  }
-  
-  return normalized
+
+  return normalized.replace(/\s+$/gm, '').trimEnd()
+}
+
+function resolveServiceAccountJsonPath(): string | undefined {
+  const raw = (
+    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
+    ''
+  ).trim()
+  if (!raw) return undefined
+  const resolved = resolvePath(raw)
+  const alt = resolvePath(process.cwd(), raw.replace(/^\.\//, ''))
+  if (existsSync(resolved)) return resolved
+  if (existsSync(alt)) return alt
+  console.warn('[Firebase] Credential file path set but file not found:', resolved)
+  return undefined
 }
 
 // Initialize Firebase Admin
 try {
-  const rawKey = process.env.FIREBASE_PRIVATE_KEY
-  const privateKey = normalizePrivateKey(rawKey)
-  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
+  const jsonPath = resolveServiceAccountJsonPath()
+  let projectId =
+    process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT
+  let clientEmail = process.env.FIREBASE_CLIENT_EMAIL
 
-  console.log('Firebase Config Check:')
-  console.log(`- Project ID: ${projectId}`)
-  console.log(`- Client Email: ${clientEmail}`)
-  console.log(`- Private Key Present: ${!!privateKey}`)
-  if (privateKey) {
-    console.log(`- Private Key Start: ${privateKey.substring(0, 40)}...`)
-    console.log(`- Private Key End: ...${privateKey.substring(privateKey.length - 40)}`)
-    console.log(`- Private Key Length: ${privateKey.length}`)
+  const storageBucketFromProject = (id: string) =>
+    process.env.FIREBASE_STORAGE_BUCKET || `${id}.firebasestorage.app`
+
+  if (jsonPath) {
+    const sa = JSON.parse(readFileSync(jsonPath, 'utf8')) as {
+      project_id?: string
+      client_email?: string
+    }
+    if (!sa.project_id) {
+      throw new Error('Service account JSON missing project_id')
+    }
+    projectId ||= sa.project_id
+    clientEmail ||= sa.client_email
+    admin.initializeApp({
+      credential: admin.credential.cert(jsonPath),
+      projectId,
+      storageBucket: storageBucketFromProject(projectId),
+    })
+    console.log('Firebase Admin initialized from service account file')
+  } else {
+    const rawKey = process.env.FIREBASE_PRIVATE_KEY
+    const privateKey = normalizePrivateKey(rawKey)
+
+    console.log('Firebase Config Check (.env credentials):')
+    console.log(`- Project ID: ${projectId || '(missing)'}`)
+    console.log(`- Client Email: ${clientEmail || '(missing)'}`)
+    console.log(`- Private Key PEM length: ${privateKey?.length ?? 0}`)
+
+    if (!projectId || !privateKey || !clientEmail) {
+      const missing: string[] = []
+      if (!projectId) missing.push('FIREBASE_PROJECT_ID')
+      if (!privateKey) missing.push('FIREBASE_PRIVATE_KEY (valid PEM)')
+      if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL')
+      throw new Error(
+        `Missing required Firebase Admin credentials: ${missing.join(', ')}. ` +
+          'Tip: download the service-account JSON from Firebase Console and set GOOGLE_APPLICATION_CREDENTIALS.'
+      )
+    }
+
+    admin.initializeApp({
+      credential: admin.credential.cert({ projectId, privateKey, clientEmail }),
+      projectId,
+      storageBucket: storageBucketFromProject(projectId),
+    })
+    console.log('Firebase Admin initialized from environment variables')
   }
-
-  if (!projectId || !privateKey || !clientEmail) {
-    const missing = []
-    if (!projectId) missing.push('FIREBASE_PROJECT_ID')
-    if (!privateKey) missing.push('FIREBASE_PRIVATE_KEY')
-    if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL')
-    throw new Error(`Missing required Firebase Admin credentials: ${missing.join(', ')}`)
-  }
-
-  const serviceAccount = {
-    projectId,
-    privateKey,
-    clientEmail,
-  }
-
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount as any),
-    projectId,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${projectId}.firebasestorage.app`,
-  })
-  console.log('Firebase Admin initialized successfully')
 } catch (err) {
   console.warn('Firebase Admin initialization failed — running in mock mode')
   console.warn('Reason:', (err as Error).message)

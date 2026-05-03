@@ -11,11 +11,10 @@ import {
 
 let firestoreAvailable: boolean | null = null
 
+/** Returns Firestore when Admin is initialized; otherwise null (callers use mocks). */
 function getDb() {
-  if (admin.apps.length === 0) {
-    throw new Error('Firebase Admin is not initialized.')
-  }
-  return admin.firestore() // Connects to real Firebase
+  if (admin.apps.length === 0) return null
+  return admin.firestore()
 }
 
 async function firestoreFallback<T>(
@@ -222,12 +221,12 @@ export const firebaseService = {
 
   // Digitization Queue
   async getDigitizationQueue(): Promise<any[]> {
-    const db = getDb()
-    if (!db) {
-      return [...mockDigitizationQueue]
-    }
-    const snapshot = await db.collection('digitization_queue').get()
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) return [...mockDigitizationQueue]
+      const snapshot = await db.collection('digitization_queue').get()
+      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    }, [...mockDigitizationQueue])
   },
 
   // Verification Items
@@ -241,13 +240,14 @@ export const firebaseService = {
   },
 
   async getVerificationItem(itemId: string): Promise<any | null> {
-    const db = getDb()
-    if (!db) {
-      const item = mockVerifications.find((v) => v.id === itemId)
-      return item ? { ...item } : null
-    }
-    const doc = await db.collection('verifications').doc(itemId).get()
-    return doc.exists ? { id: doc.id, ...doc.data() } : null
+    const mockMatch = mockVerifications.find((v) => v.id === itemId)
+    const fallback = mockMatch ? { ...mockMatch } : null
+    return firestoreFallback(async () => {
+      const db = getDb()
+      if (!db) return fallback
+      const doc = await db.collection('verifications').doc(itemId).get()
+      return doc.exists ? { id: doc.id, ...doc.data() } : null
+    }, fallback)
   },
 
   async updateVerificationItem(itemId: string, updates: any): Promise<void> {

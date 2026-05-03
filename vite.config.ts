@@ -14,7 +14,8 @@ export default defineConfig({
     strictPort: false,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        // 127.0.0.1 avoids Windows resolving "localhost" to ::1 while the API listens on IPv4 only
+        target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8080',
         changeOrigin: true,
       }
     }
