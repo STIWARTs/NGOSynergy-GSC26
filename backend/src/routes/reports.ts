@@ -70,7 +70,7 @@ router.post('/submit', upload.single('file'), async (req: Request, res: Response
       return res.status(400).json({ errors: validation.error.flatten() })
     }
 
-    const { category, severity, coordinates, reporterName, description, affectedCount } =
+    const { category, severity, reporterName, description, affectedCount } =
       validation.data
 
     // Step 1: Verify photo authenticity with Gemini (skip if file is CSV/PDF)
