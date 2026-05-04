@@ -83,10 +83,7 @@ try {
   // Option A: Check for FIREBASE_CREDENTIALS_JSON (Render/production via env var)
   if (process.env.FIREBASE_CREDENTIALS_JSON) {
     try {
-      const credentials = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON) as {
-        project_id?: string
-        client_email?: string
-      }
+      const credentials = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON) as admin.ServiceAccount
       if (!credentials.project_id) {
         throw new Error('Parsed credentials JSON missing project_id')
       }
@@ -105,10 +102,7 @@ try {
     // Option B: Check for file path
     const jsonPath = resolveServiceAccountJsonPath()
     if (jsonPath) {
-      const sa = JSON.parse(readFileSync(jsonPath, 'utf8')) as {
-        project_id?: string
-        client_email?: string
-      }
+      const sa = JSON.parse(readFileSync(jsonPath, 'utf8')) as admin.ServiceAccount
       if (!sa.project_id) {
         throw new Error('Service account JSON missing project_id')
       }
