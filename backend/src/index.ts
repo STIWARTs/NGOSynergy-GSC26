@@ -151,14 +151,12 @@ try {
 const app = express()
 const PORT = process.env.PORT || 8080
 
+// Parse CORS origins from environment variable (comma-separated)
+const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000,http://10.0.2.2:8080,http://10.0.2.2:3000').split(',').map(origin => origin.trim())
+
 // Middleware
 app.use(cors({
-  origin: [
-    'http://localhost:5173',  // Vite dev server
-    'http://localhost:3000',  // Alt web dev
-    'http://10.0.2.2:8080',  // Android emulator → host
-    'http://10.0.2.2:3000',
-  ],
+  origin: corsOrigins,
   credentials: true,
 }))
 app.use(express.json())
