@@ -167,6 +167,7 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     mode: process.env.USE_VERTEX_AI === 'true' ? 'vertex-ai' : 'poc',
     timestamp: new Date().toISOString(),
+    devMode: process.env.DEV_MODE,
   })
 })
 
