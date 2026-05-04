@@ -18,6 +18,7 @@ import crisesRouter from './routes/crises.js'
 import documentsRouter from './routes/documents.js'
 import tasksRouter from './routes/tasks.js'
 import { authMiddleware } from './middleware/authMiddleware.js'
+import { firebaseService } from './services/firebaseService.js'
 
 dotenv.config()
 
@@ -185,6 +186,18 @@ app.get('/api/debug/auth-test', authMiddleware, (req, res) => {
     user: req.user,
     devMode: process.env.DEV_MODE 
   })
+})
+
+// Test incidents endpoint with try-catch logging
+app.get('/api/incidents-test', authMiddleware, async (req, res) => {
+  try {
+    console.log('Testing /api/incidents-test')
+    const incidents = await firebaseService.getAllIncidents()
+    res.json({ success: true, incidents })
+  } catch (error) {
+    console.error('Error in incidents-test:', error)
+    res.status(500).json({ error: 'Failed', details: (error as Error).message })
+  }
 })
 
 app.use('/api/incidents', incidentsRouter)
