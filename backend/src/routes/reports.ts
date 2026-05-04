@@ -49,10 +49,13 @@ router.post('/submit', upload.single('file'), async (req: Request, res: Response
     }
 
     // Parse other fields from formData if present
+    const parsedCoordinates = req.body?.coordinates ? JSON.parse(req.body.coordinates) : undefined
     const bodyData = {
       category: req.body?.category,
       severity: req.body?.severity ? Number(req.body.severity) : undefined,
-      coordinates: req.body?.coordinates ? JSON.parse(req.body.coordinates) : undefined,
+      coordinates: parsedCoordinates && typeof parsedCoordinates === 'object' && 'lat' in parsedCoordinates && 'lng' in parsedCoordinates
+        ? { lat: Number(parsedCoordinates.lat), lng: Number(parsedCoordinates.lng) }
+        : undefined,
       photoUrl: photoUrl,
       reporterName: req.body?.reporterName,
       description: req.body?.description,
