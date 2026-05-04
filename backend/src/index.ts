@@ -17,6 +17,7 @@ import volunteerRouter from './routes/volunteers.js'
 import crisesRouter from './routes/crises.js'
 import documentsRouter from './routes/documents.js'
 import tasksRouter from './routes/tasks.js'
+import { authMiddleware } from './middleware/authMiddleware.js'
 
 dotenv.config()
 
@@ -171,7 +172,21 @@ app.get('/health', (req, res) => {
   })
 })
 
+// Debug route (no auth required)
+app.get('/debug/test', (req, res) => {
+  res.json({ message: 'Debug route working!', devMode: process.env.DEV_MODE })
+})
+
 // API Routes
+// Debug route with auth (to test middleware)
+app.get('/api/debug/auth-test', authMiddleware, (req, res) => {
+  res.json({ 
+    message: 'Auth middleware working!', 
+    user: req.user,
+    devMode: process.env.DEV_MODE 
+  })
+})
+
 app.use('/api/incidents', incidentsRouter)
 app.use('/api/match', matchRouter)
 app.use('/api/admin', adminRouter)
